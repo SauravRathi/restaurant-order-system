@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Restaurant Orders API — PostgreSQL schema, migrations and seed",
+  "description": "Restaurant Orders API — PostgreSQL schema, migrations and seed (Assignment 09)",
   "engines": {
     "node": ">=20.12"
+  },
+  "scripts": {
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:status": "node scripts/migrate.mjs --status"
   },
   "dependencies": {
     "pg": "^8.13.1"
