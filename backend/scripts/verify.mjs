@@ -68,6 +68,30 @@ async function check(label, sql, params, predicate) {
   }
 }
 
+/**
+ * As `check`, but applies `setup` first and rolls the whole thing back afterwards.
+ *
+ * For rules whose truth depends on *when* you look. The seeded acknowledgement on T4 is two
+ * minutes old, so a check asserting "T4 is suppressed" is only true for the eight minutes
+ * before the repeat window elapses — it passes inside `db:rebuild` and fails if you run
+ * `db:verify` on its own an hour later, which is a verification script crying wolf. Setting
+ * the fixture state the assertion needs, then rolling back, makes the answer independent of
+ * how long ago the seed ran.
+ */
+async function checkInTransaction(label, { setup, sql, params = [], predicate }) {
+  await client.query('BEGIN');
+  try {
+    if (setup) await client.query(setup.sql, setup.params ?? []);
+    const { rows } = await client.query(sql, params);
+    const verdict = predicate(rows);
+    record(label, verdict === true, typeof verdict === 'string' ? verdict : undefined);
+  } catch (err) {
+    record(label, false, err.message);
+  } finally {
+    await client.query('ROLLBACK');
+  }
+}
+
 try {
   console.log('\nSchema objects');
   await check(
@@ -164,22 +188,53 @@ try {
     [],
     ([r]) => Number(r.n) > 0 || 'Meera has no visible orders'
   );
+  // The §10 alert predicate, written once so the three checks below cannot drift apart: they
+  // exercise one query under three different fixture states, not three copies of it.
+  const ALERT_SQL = `
+    SELECT o.table_number
+      FROM orders o
+     WHERE o.archived_at IS NULL
+       AND o.status IN ('placed','accepted','preparing')
+       AND o.placed_at < now() - make_interval(mins => $1)
+       AND (o.alert_acked_at IS NULL OR o.alert_acked_at < now() - make_interval(mins => $2))`;
+  const alertArgs = [slowMins, repeatMins];
+
+  // 'T4' is also a table number in the thirteen days of served history, so the setups below
+  // narrow to the open order — the only one the predicate can return anyway.
+  const ackT4 = (ageMins) => ({
+    sql: `UPDATE orders
+             SET alert_acked_at = now() - make_interval(mins => $1),
+                 alert_acked_by = (SELECT id FROM users WHERE email = 'manager@demo.test')
+           WHERE table_number = 'T4'
+             AND archived_at IS NULL
+             AND status IN ('placed','accepted','preparing')`,
+    params: [ageMins],
+  });
+
   await check(
-    `§10 alerts fire past ${slowMins}m and stay quiet for ${repeatMins}m after an ack`,
-    `SELECT o.table_number, o.alert_acked_at IS NOT NULL AS acked
-       FROM orders o
-      WHERE o.archived_at IS NULL
-        AND o.status IN ('placed','accepted','preparing')
-        AND o.placed_at < now() - make_interval(mins => $1)
-        AND (o.alert_acked_at IS NULL OR o.alert_acked_at < now() - make_interval(mins => $2))`,
-    [slowMins, repeatMins],
-    (rows) => {
-      const tables = rows.map((r) => r.table_number);
-      if (!tables.includes('T12')) return 'the slow unacknowledged order (T12) is missing';
-      if (tables.includes('T4')) return 'the just-acknowledged order (T4) should be suppressed';
-      return true;
-    }
+    `§10 an order open past ${slowMins}m with no acknowledgement raises an alert`,
+    ALERT_SQL,
+    alertArgs,
+    (rows) =>
+      rows.some((r) => r.table_number === 'T12') ||
+      'the slow unacknowledged order (T12) is missing'
   );
+  await checkInTransaction(`§10 an acknowledgement suppresses the alert`, {
+    setup: ackT4(0),
+    sql: ALERT_SQL,
+    params: alertArgs,
+    predicate: (rows) =>
+      !rows.some((r) => r.table_number === 'T4') ||
+      'T4 was acknowledged just now and should not be alerting',
+  });
+  await checkInTransaction(`§10 the alert returns once the ${repeatMins}m repeat window elapses`, {
+    setup: ackT4(repeatMins + 1),
+    sql: ALERT_SQL,
+    params: alertArgs,
+    predicate: (rows) =>
+      rows.some((r) => r.table_number === 'T4') ||
+      'T4 is still slow and its acknowledgement has expired, so it should alert again',
+  });
   await check(
     '§8 today has revenue and a served count',
     `SELECT (SELECT count(*) FROM orders

@@ -63,7 +63,7 @@ Demo data (restaurant timezone Asia/Kolkata):
   timeline_events  564
 ```
 
-and `verify` reporting `20 passed, 0 failed`.
+and `verify` reporting `22 passed, 0 failed`.
 
 If you would rather not run anything locally, the two migration files and the seed can be pasted
 into the Supabase SQL editor in order — they are written to be idempotent and to manage their own
