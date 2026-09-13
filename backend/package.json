@@ -1,0 +1,13 @@
+{
+  "name": "restaurant-orders-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Restaurant Orders API — PostgreSQL schema, migrations and seed",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
