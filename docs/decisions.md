@@ -35,18 +35,12 @@ were made in the same sitting, the more consequential comes first.
   working on this order" and "which orders am I on". A junction table indexes both cheaply: the
   composite primary key serves the first, a second index on `user_id` serves the second.
 
-  Three things an array cannot do at all, which decided it:
+  Two things an array cannot do at all, which decided it:
 
   1. **No referential integrity.** Nothing guarantees an ID in the array corresponds to a real user.
      A foreign key does.
   2. **Nowhere to record who added whom.** The timeline needs `added_by` and `added_at`; an array of
      plain IDs has no room for them.
-  3. **No protection against duplicates.** The composite primary key makes adding the same waiter
-     twice impossible in the database, rather than a check I have to remember in code.
-
-- **What I am *not* claiming:** that an array could not serve the reverse lookup. Postgres can
-  GIN-index an array, so "which orders am I on" would perform acceptably. The three points above are
-  the reasons; query speed is not one of them.
 
 ---
 
@@ -85,3 +79,21 @@ The full list, with reasoning for each, lives in
 - **Chose:** An order can only be archived once it is Served or Cancelled.
 - **Rejected:** Allowing archive at any point in the lifecycle.
 - **Why:** The requirement 2 says that orders can be archived and restored, but it does not specify at which stage they can be archived. I am restricting the archive to the terminal states, which is canceled or completed, so that a waiter cannot archive an order that is actively being prepared in the kitchen. 
+
+---
+
+## Decision 7 — One hosted database for development and deployment
+
+- **Chose:** Develop directly against the Supabase database, and deploy against that same
+  database.
+- **Rejected:** A local PostgreSQL instance during development, switched to a hosted one at
+  deployment.
+- **Why:**
+
+  Two databases means the thing I test is not the thing I ship. I may come across compatibility issues at the last hour.
+
+  Installing PostgreSQL, then keeping two environments
+  in step, costs time out of a twelve-hour budget and earns nothing the brief asks for.
+
+- **What it costs:** every query is a network round trip, so iterating on SQL is slower than it
+  would be locally, and none of it works offline. Neither has mattered, and I have not needed to work without a connection.
