@@ -11,7 +11,9 @@
     "db:migrate": "node scripts/migrate.mjs",
     "db:status": "node scripts/migrate.mjs --status",
     "db:seed": "node scripts/seed.mjs",
-    "db:verify": "node scripts/verify.mjs"
+    "db:verify": "node scripts/verify.mjs",
+    "db:reset": "node scripts/reset.mjs",
+    "db:rebuild": "npm run db:reset -- --force && npm run db:migrate && npm run db:seed && npm run db:verify"
   },
   "dependencies": {
     "pg": "^8.13.1"
