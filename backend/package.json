@@ -10,7 +10,8 @@
   "scripts": {
     "db:migrate": "node scripts/migrate.mjs",
     "db:status": "node scripts/migrate.mjs --status",
-    "db:seed": "node scripts/seed.mjs"
+    "db:seed": "node scripts/seed.mjs",
+    "db:verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "pg": "^8.13.1"
