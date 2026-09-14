@@ -12,8 +12,9 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth } from '../auth/middleware.js';
+import { requireAuth, requireRole } from '../auth/middleware.js';
 import { orderVisibilitySql, scopedParams } from '../auth/visibility.js';
+import { BOM, toCsv } from './csv.js';
 import { query, withTransaction } from '../db.js';
 import { conflict, notFound, unprocessable } from '../http/errors.js';
 import { idSchema, parseBody, parseId, parseQuery } from '../http/validate.js';
@@ -255,6 +256,69 @@ export function orderRoutes() {
         totalPages: Math.ceil(total / f.pageSize),
       },
     });
+  });
+
+  // §7. Registered before '/:id' — otherwise Express reads "export" as an order id, and every
+  // download becomes a 404.
+  //
+  // Manager-only (403 for a waiter): the file is the whole restaurant's takings for the day,
+  // which is a different thing from the orders a waiter is allowed to work on.
+  router.get('/export', requireAuth, requireRole('manager'), async (req, res) => {
+    parseQuery(z.strictObject({}), req.query);
+
+    const tz = process.env.RESTAURANT_TZ || 'Asia/Kolkata';
+
+    // One row per order line, with the order's columns repeated, because that is the shape a
+    // spreadsheet can pivot. LEFT JOIN so an order taken but not yet itemised still appears
+    // rather than vanishing from the day's record.
+    //
+    // "Today" is a date in the restaurant's timezone, not the server's: the API runs in UTC,
+    // where a 23:30 IST dinner already belongs to tomorrow.
+    //
+    // The visibility predicate is applied even though a manager sees everything and it folds
+    // away to true. It costs nothing, and it means this route does not quietly become the one
+    // exception if the export is ever offered to waiters.
+    const { rows } = await query(
+      `SELECT o.id AS order_id,
+              o.table_number,
+              o.status,
+              to_char(o.placed_at AT TIME ZONE $3, 'YYYY-MM-DD HH24:MI') AS placed_at_local,
+              w.display_name AS waiter,
+              o.archived_at IS NOT NULL AS archived,
+              l.item_name,
+              l.quantity,
+              l.unit_price,
+              CASE WHEN l.id IS NULL THEN NULL
+                   ELSE (l.quantity * l.unit_price)::numeric(10,2) END AS line_total,
+              l.voided_at IS NOT NULL AS voided,
+              l.void_reason,
+              (SELECT COALESCE(sum(x.quantity * x.unit_price) FILTER (WHERE x.voided_at IS NULL), 0)::numeric(10,2)
+                 FROM order_lines x WHERE x.order_id = o.id) AS order_total
+         FROM orders o
+         JOIN users w ON w.id = o.primary_waiter_id
+         LEFT JOIN order_lines l ON l.order_id = o.id
+        WHERE (o.placed_at AT TIME ZONE $3)::date = (now() AT TIME ZONE $3)::date
+          AND ${orderVisibilitySql()}
+        ORDER BY o.placed_at, o.id, l.created_at, l.id`,
+      [...scopedParams(req.user), tz]
+    );
+
+    const header = [
+      'order_id', 'table_number', 'status', 'placed_at', 'waiter', 'archived',
+      'item', 'quantity', 'unit_price', 'line_total', 'voided', 'void_reason', 'order_total',
+    ];
+    const body = rows.map((r) => [
+      r.order_id, r.table_number, r.status, r.placed_at_local, r.waiter, r.archived,
+      r.item_name, r.quantity, r.unit_price, r.line_total, r.voided, r.void_reason,
+      r.order_total,
+    ]);
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+    res
+      .status(200)
+      .type('text/csv; charset=utf-8')
+      .set('Content-Disposition', `attachment; filename="orders-${today}.csv"`)
+      .send(BOM + toCsv(header, body));
   });
 
   // Scoped: an order that is not yours is 404, indistinguishable from one that never existed.
