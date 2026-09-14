@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="BUSY">
   <!-- A filled tile rather than a bare letter: at 16px a solid shape survives where a thin
-       letterform does not. The tile is --text, the same colour the wordmark's BUSY is set in. -->
+       letterform does not. The tile is the same near-black the wordmark's BUSY is set in.
+       No double hyphen anywhere in here: this file is parsed as strict XML. -->
   <rect width="100" height="100" rx="22" fill="#10161d"/>
   <path fill="#fff" fill-rule="evenodd" d="M25 18 H57 a16 16 0 0 1 0 32 H59 a16 16 0 0 1 0 32 H25 Z M39 30 H54 a5 5 0 0 1 0 10 H39 Z M39 60 H56 a5 5 0 0 1 0 10 H39 Z"/>
 </svg>
