@@ -13,9 +13,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../auth/middleware.js';
-import { withTransaction } from '../db.js';
+import { orderVisibilitySql, scopedParams } from '../auth/visibility.js';
+import { query, withTransaction } from '../db.js';
 import { conflict, notFound, unprocessable } from '../http/errors.js';
-import { idSchema, parseBody, parseId } from '../http/validate.js';
+import { idSchema, parseBody, parseId, parseQuery } from '../http/validate.js';
+import { toOrder } from './serialize.js';
 import {
   ORDER_STATUSES,
   assertTransition,
@@ -69,6 +71,82 @@ const addNoteSchema = z.strictObject({
   note: z.string().trim().min(1, 'A note cannot be empty').max(1000),
 });
 
+// ---------------------------------------------------------------------------
+// GET /orders — §5 and §6 are one endpoint, because "orders I am on" is a filter over the
+// same list as "orders matching this search", not a different screen.
+// ---------------------------------------------------------------------------
+
+// An absent parameter and an empty one mean the same thing: no filter. Query strings pick up
+// `?q=&status=` from a form with untouched fields, and a 422 for that would be pedantic.
+const blankToUndefined = (schema) =>
+  z.preprocess((v) => (v === '' || v === undefined ? undefined : v), schema);
+
+const pagingNumber = (fallback, min, max) =>
+  blankToUndefined(z.coerce.number().int().min(min).max(max)).default(fallback);
+
+// Sort keys are mapped to columns through this table and never interpolated from the request,
+// so `?sort=` cannot name a column — or anything else.
+const SORT_COLUMNS = {
+  placedAt: 'o.placed_at',
+  status: 'o.status',
+  tableNumber: 'o.table_number',
+};
+
+const listOrdersSchema = z.strictObject({
+  q: blankToUndefined(z.string().trim().max(60)).optional(),
+
+  // Repeatable: `?status=placed&status=ready`. Express hands over a string for one and an
+  // array for several, so both are accepted and normalised to an array.
+  status: blankToUndefined(
+    z.union([z.enum(ORDER_STATUSES), z.array(z.enum(ORDER_STATUSES)).min(1)], 'Unknown status')
+  )
+    .optional()
+    .transform((v) => (v === undefined ? undefined : [].concat(v))),
+
+  waiterId: blankToUndefined(idSchema).optional(),
+  dateFrom: blankToUndefined(z.iso.date('Use YYYY-MM-DD')).optional(),
+  dateTo: blankToUndefined(z.iso.date('Use YYYY-MM-DD')).optional(),
+
+  // For a waiter these two are the same set — everything they can see, they are on — so this
+  // only narrows anything for a manager. It stays available to both so the frontend does not
+  // need a different request per role.
+  scope: blankToUndefined(z.enum(['mine', 'all'], 'scope must be mine or all')).default('all'),
+
+  sort: blankToUndefined(
+    z.enum(Object.keys(SORT_COLUMNS), 'sort must be placedAt, status or tableNumber')
+  ).default('placedAt'),
+  order: blankToUndefined(z.enum(['asc', 'desc'], 'order must be asc or desc')).default('desc'),
+
+  page: pagingNumber(1, 1, 100_000),
+  pageSize: pagingNumber(20, 1, 100),
+
+  includeArchived: z.preprocess(
+    (v) => (v === undefined || v === '' ? 'false' : v),
+    z.stringbool()
+  ),
+});
+
+// % and _ are wildcards to ILIKE, so a waiter searching for the literal table "T_1" would
+// otherwise match "T21" as well. Escaped here and declared with ESCAPE below.
+const escapeLike = (value) => value.replace(/[\\%_]/g, '\\$&');
+
+const involvesUser = (column) =>
+  `(o.primary_waiter_id = ${column}
+    OR EXISTS (SELECT 1 FROM order_collaborators f
+                WHERE f.order_id = o.id AND f.user_id = ${column}))`;
+
+/** How many orders match, ignoring paging. Only used when the requested page came back empty. */
+async function countMatching(whereSql, params) {
+  const { rows } = await query(
+    `SELECT count(*)::int AS n
+       FROM orders o
+       JOIN users w ON w.id = o.primary_waiter_id
+      WHERE ${whereSql}`,
+    params
+  );
+  return rows[0].n;
+}
+
 export function orderRoutes() {
   const router = Router();
 
@@ -100,6 +178,83 @@ export function orderRoutes() {
     // Read back after the commit, so the response is the order as the database now holds it
     // rather than as this request hoped to leave it.
     res.status(201).json({ order: await loadOrderDetail(req.user, orderId) });
+  });
+
+  // §5 + §6. Every filter is optional and they compose; the visibility predicate is ANDed in
+  // underneath all of them, so a waiter's search can only ever range over their own orders.
+  router.get('/', requireAuth, async (req, res) => {
+    const f = parseQuery(listOrdersSchema, req.query);
+
+    // $1 and $2 are the visibility parameters, by the contract in auth/visibility.js. Every
+    // filter below appends its own value and uses the index it got back, so the numbering
+    // cannot drift out of step with the array.
+    const params = scopedParams(req.user);
+    const bind = (value) => `$${params.push(value)}`;
+
+    const where = [orderVisibilitySql()];
+
+    if (!f.includeArchived) where.push('o.archived_at IS NULL');
+    if (f.q) where.push(`o.table_number ILIKE '%' || ${bind(escapeLike(f.q))} || '%' ESCAPE '\\'`);
+    if (f.status) where.push(`o.status = ANY(${bind(f.status)}::order_status[])`);
+    if (f.waiterId) where.push(involvesUser(bind(f.waiterId)));
+    if (f.scope === 'mine') where.push(involvesUser(bind(req.user.id)));
+
+    // Dates are compared in the restaurant's timezone, not the server's. The API host runs in
+    // UTC, and a 23:30 IST dinner must not land on tomorrow's date (Decision 11).
+    if (f.dateFrom || f.dateTo) {
+      const tz = bind(process.env.RESTAURANT_TZ || 'Asia/Kolkata');
+      if (f.dateFrom) where.push(`(o.placed_at AT TIME ZONE ${tz})::date >= ${bind(f.dateFrom)}::date`);
+      if (f.dateTo) where.push(`(o.placed_at AT TIME ZONE ${tz})::date <= ${bind(f.dateTo)}::date`);
+    }
+
+    // o.id breaks ties so a page boundary cannot show the same order twice or skip one when
+    // two orders share a placed_at — which the seed's bulk-inserted history does.
+    const direction = f.order === 'asc' ? 'ASC' : 'DESC';
+    const orderBy = `${SORT_COLUMNS[f.sort]} ${direction}, o.id ${direction}`;
+
+    // Kept before LIMIT/OFFSET are bound, so the count fallback below can re-use exactly these
+    // filters and these parameters.
+    const whereSql = where.join('\n          AND ');
+    const filterParams = [...params];
+
+    const limit = bind(f.pageSize);
+    const offset = bind((f.page - 1) * f.pageSize);
+
+    // count(*) OVER () is evaluated before LIMIT, so the total for the pager comes back on the
+    // same round trip as the page itself instead of needing a second query with a duplicated
+    // — and eventually divergent — WHERE clause.
+    const { rows } = await query(
+      `SELECT o.id, o.table_number, o.status, o.placed_at, o.ready_at, o.served_at,
+              o.cancelled_at, o.archived_at, o.alert_acked_at, o.primary_waiter_id, o.updated_at,
+              w.display_name AS primary_waiter_name,
+              (SELECT COALESCE(sum(l.quantity * l.unit_price) FILTER (WHERE l.voided_at IS NULL), 0)::numeric(10,2)
+                 FROM order_lines l WHERE l.order_id = o.id) AS total,
+              (SELECT count(*)::int FROM order_lines l
+                WHERE l.order_id = o.id AND l.voided_at IS NULL) AS line_count,
+              (SELECT count(*)::int FROM order_collaborators c WHERE c.order_id = o.id) AS collaborator_count,
+              count(*) OVER ()::int AS total_count
+         FROM orders o
+         JOIN users w ON w.id = o.primary_waiter_id
+        WHERE ${whereSql}
+        ORDER BY ${orderBy}
+        LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+
+    // count(*) OVER () rides along on the rows, so an empty page brings back no count with it
+    // — and "page 9999 of a 75-order list" would otherwise report a total of 0 and tell the
+    // pager there is nothing to go back to. Only that case pays for a second query.
+    const total = rows[0]?.total_count ?? (await countMatching(whereSql, filterParams));
+
+    res.json({
+      orders: rows.map(toOrder),
+      page: {
+        page: f.page,
+        pageSize: f.pageSize,
+        total,
+        totalPages: Math.ceil(total / f.pageSize),
+      },
+    });
   });
 
   // Scoped: an order that is not yours is 404, indistinguishable from one that never existed.
