@@ -96,14 +96,33 @@ a:hover {
   z-index: 10;
 }
 
-.topbar .brand {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.02em;
+/* The wordmark. Stacked rather than set on one line: three words across the top bar would push
+   the nav off to the right, and stacked it is no wider than the single word it replaced.
+   Sizes belong to whatever it sits in — small here, large on the sign-in card. */
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
   color: var(--text);
 }
+.wordmark-name {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.wordmark-tail {
+  color: var(--text-faint);
+}
+
 .topbar .brand:hover {
   text-decoration: none;
+}
+.topbar .wordmark-name {
+  font-size: 15px;
+}
+.topbar .wordmark-tail {
+  margin-top: 2.5px;
+  font-size: 8.5px;
+  letter-spacing: 0.17em;
 }
 
 .topbar nav {
@@ -524,13 +543,19 @@ tbody tr.clickable:hover {
   padding: 28px;
 }
 
+/* The wordmark is the whole of the card's header now, so it carries the gap the subtitle
+   used to sit in. */
 .login-card h1 {
-  margin-bottom: 3px;
+  margin-bottom: 24px;
 }
 
-.login-card > p {
-  margin: 0 0 22px;
-  color: var(--text-muted);
+.login-card .wordmark-name {
+  font-size: 26px;
+}
+.login-card .wordmark-tail {
+  margin-top: 5px;
+  font-size: 11px;
+  letter-spacing: 0.22em;
 }
 
 .demo-creds {

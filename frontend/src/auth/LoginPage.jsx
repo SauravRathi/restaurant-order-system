@@ -65,8 +65,10 @@ export default function LoginPage() {
   return (
     <div className="login-shell">
       <div className="card login-card">
-        <h1>Orders</h1>
-        <p>Sign in to the floor.</p>
+        <h1 className="wordmark">
+          <span className="wordmark-name">BUSY</span>
+          <span className="wordmark-tail">WITH ORDERS</span>
+        </h1>
 
         <ErrorNotice error={formError} />
 
