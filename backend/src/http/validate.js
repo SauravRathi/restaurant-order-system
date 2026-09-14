@@ -12,14 +12,30 @@ import { unprocessable } from './errors.js';
  * rather than discovering them one at a time.
  */
 export function parseBody(schema, body) {
-  const result = schema.safeParse(body ?? {});
+  return parse(schema, body, 'Invalid payload', '(body)');
+}
+
+/**
+ * The same, for query strings.
+ *
+ * Separate from parseBody only so the message names the right thing — a client told "invalid
+ * payload" when the problem is `?role=chef` will go looking in the wrong place. Query values
+ * arrive as strings, or as arrays when a parameter is repeated, so schemas here must expect
+ * that rather than assuming a scalar.
+ */
+export function parseQuery(schema, query) {
+  return parse(schema, query, 'Invalid query parameters', '(query)');
+}
+
+function parse(schema, value, message, anonymousField) {
+  const result = schema.safeParse(value ?? {});
   if (result.success) return result.data;
 
-  throw unprocessable('Invalid payload', {
+  throw unprocessable(message, {
     code: 'VALIDATION_FAILED',
     details: result.error.issues.map((issue) => ({
       // path is [] for a problem with the object itself, e.g. an unrecognised key.
-      field: issue.path.join('.') || '(body)',
+      field: issue.path.join('.') || anonymousField,
       message: issue.message,
     })),
   });

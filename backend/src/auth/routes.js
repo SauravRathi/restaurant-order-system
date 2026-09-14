@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { query } from '../db.js';
 import { unauthorized } from '../http/errors.js';
 import { parseBody } from '../http/validate.js';
+import { toUser } from '../users/serialize.js';
 import { requireAuth } from './middleware.js';
 import { verifyPassword } from './password.js';
 import { signToken } from './tokens.js';
@@ -26,13 +27,6 @@ const loginSchema = z.strictObject({
   // an account, and applying it here would reject a legitimate old password with 422 instead
   // of the 401 it deserves.
   password: z.string().min(1, 'Password is required').max(200),
-});
-
-const toPublicUser = (row) => ({
-  id: row.id,
-  email: row.email,
-  displayName: row.display_name,
-  role: row.role,
 });
 
 export function authRoutes() {
@@ -56,21 +50,24 @@ export function authRoutes() {
       throw unauthorized('Invalid email or password', { code: 'INVALID_CREDENTIALS' });
     }
 
-    res.json({ token: signToken(user), user: toPublicUser(user) });
+    res.json({ token: signToken(user), user: toUser(user) });
   });
 
   // The end-to-end proof: token in, identity out. It re-reads the row rather than echoing the
   // token's claims, which costs one primary-key lookup and buys two things — the frontend can
   // restore a session on reload from the token alone, and a token whose user has since been
   // removed stops working instead of describing a user that is not there.
+  //
+  // The column narrowing in users/serialize.js does not apply here: this is the caller's own
+  // record, so a waiter seeing their own email and phone number is the point, not a leak.
   router.get('/me', requireAuth, async (req, res) => {
     const { rows } = await query(
-      `SELECT id, email, display_name, role FROM users WHERE id = $1`,
+      `SELECT id, email, display_name, role, phone, created_at FROM users WHERE id = $1`,
       [req.user.id]
     );
     if (!rows[0]) throw unauthorized('Account no longer exists', { code: 'USER_GONE' });
 
-    res.json({ user: toPublicUser(rows[0]) });
+    res.json({ user: toUser(rows[0]) });
   });
 
   return router;
