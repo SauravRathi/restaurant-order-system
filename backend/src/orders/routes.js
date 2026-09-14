@@ -16,7 +16,13 @@ import { requireAuth } from '../auth/middleware.js';
 import { withTransaction } from '../db.js';
 import { conflict, notFound, unprocessable } from '../http/errors.js';
 import { idSchema, parseBody, parseId } from '../http/validate.js';
-import { ORDER_STATUSES, assertTransition, isOpen, stampColumnFor } from './lifecycle.js';
+import {
+  ORDER_STATUSES,
+  assertTransition,
+  isOpen,
+  isTerminal,
+  stampColumnFor,
+} from './lifecycle.js';
 import {
   loadOrderDetail,
   loadTimeline,
@@ -53,6 +59,14 @@ const addLineSchema = z.strictObject({
 // what lets a waiter read a sentence instead of a constraint name.
 const voidLineSchema = z.strictObject({
   reason: z.string().trim().min(1, 'A reason is required to void a line').max(500),
+});
+
+// Naming *another* person as the object of an action is allowed; naming yourself as the actor
+// is not. `userId` is who is being added — `added_by` still comes from the token.
+const addCollaboratorSchema = z.strictObject({ userId: idSchema });
+
+const addNoteSchema = z.strictObject({
+  note: z.string().trim().min(1, 'A note cannot be empty').max(1000),
 });
 
 export function orderRoutes() {
@@ -231,6 +245,134 @@ export function orderRoutes() {
         note: reason,
         details: { item: line.item_name },
       });
+    });
+
+    res.json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  // §5. Adding a collaborator widens who can see and act on this order — visibility and
+  // actionability are the same predicate — so this route is also the only way an order reaches
+  // a waiter who did not create it.
+  router.post('/:id/collaborators', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const { userId } = parseBody(addCollaboratorSchema, req.body);
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      if (order.archived_at !== null) {
+        throw conflict('This order is archived; restore it before changing it.', {
+          code: 'ORDER_ARCHIVED',
+        });
+      }
+
+      const { rows } = await client.query(
+        `SELECT id, display_name, role FROM users WHERE id = $1`,
+        [userId]
+      );
+      const target = rows[0];
+
+      // Both of these are 422 rather than 409: they are statements about the payload's own
+      // value, decided without reference to this order's state.
+      if (!target || target.role !== 'waiter') {
+        throw unprocessable('Invalid payload', {
+          code: 'VALIDATION_FAILED',
+          details: [
+            {
+              field: 'userId',
+              message: target ? 'Only a waiter can be added as a collaborator' : 'No user with that id',
+            },
+          ],
+        });
+      }
+      if (target.id === order.primary_waiter_id) {
+        throw conflict(`${target.display_name} is already the primary waiter on this order.`, {
+          code: 'ALREADY_PRIMARY',
+        });
+      }
+
+      // ON CONFLICT DO NOTHING rather than asking first: the composite primary key already
+      // makes a duplicate impossible, so letting it decide keeps the check and the write in
+      // one statement with no gap between them.
+      const { rows: inserted } = await client.query(
+        `INSERT INTO order_collaborators (order_id, user_id, added_by)
+              VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING
+           RETURNING user_id`,
+        [id, target.id, req.user.id]
+      );
+      if (!inserted[0]) {
+        throw conflict(`${target.display_name} is already a collaborator on this order.`, {
+          code: 'ALREADY_COLLABORATOR',
+        });
+      }
+
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'collaborator_added',
+        note: `Added ${target.display_name}`,
+        details: { userId: target.id, displayName: target.display_name },
+      });
+    });
+
+    res.status(201).json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  // The one action whose change *is* its record — there is no order column for a note, so the
+  // timeline entry is the whole write. Allowed in any state, including archived: a note is a
+  // remark about what happened, and something worth saying can occur after the fact.
+  router.post('/:id/notes', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const { note } = parseBody(addNoteSchema, req.body);
+
+    await withTransaction(async (client) => {
+      await requireVisibleOrder(req.user, id, client);
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'note_added',
+        note,
+      });
+    });
+
+    res.status(201).json({ timeline: await loadTimeline(id) });
+  });
+
+  // §2, narrowed by Decision 6: archiving is for orders that are finished, not for clearing
+  // the board. An order still in service has to reach Served or Cancelled first.
+  router.post('/:id/archive', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      if (order.archived_at !== null) {
+        throw conflict('This order is already archived.', { code: 'ALREADY_ARCHIVED' });
+      }
+      if (!isTerminal(order.status)) {
+        throw conflict(
+          'Only a Served or Cancelled order can be archived; this one is still in service.',
+          { code: 'ORDER_STILL_ACTIVE' }
+        );
+      }
+
+      await client.query(`UPDATE orders SET archived_at = now() WHERE id = $1`, [id]);
+      await recordEvent(client, { orderId: id, actorId: req.user.id, action: 'archived' });
+    });
+
+    res.json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  router.post('/:id/restore', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      if (order.archived_at === null) {
+        throw conflict('This order is not archived.', { code: 'NOT_ARCHIVED' });
+      }
+
+      await client.query(`UPDATE orders SET archived_at = NULL WHERE id = $1`, [id]);
+      await recordEvent(client, { orderId: id, actorId: req.user.id, action: 'restored' });
     });
 
     res.json({ order: await loadOrderDetail(req.user, id) });
