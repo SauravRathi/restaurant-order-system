@@ -3,6 +3,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './auth/LoginPage.jsx';
 import { RequireAuth } from './auth/RequireAuth.jsx';
+import OrderDetailPage from './orders/OrderDetailPage.jsx';
 import OrdersPage from './orders/OrdersPage.jsx';
 import Layout from './ui/Layout.jsx';
 
@@ -17,6 +18,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/orders" replace />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/orders/:id" element={<OrderDetailPage />} />
         </Route>
       </Route>
 

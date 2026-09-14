@@ -26,6 +26,51 @@ export function useOrders(filters) {
   });
 }
 
+export const useOrder = (id) =>
+  useQuery({
+    queryKey: orderKeys.detail(id),
+    queryFn: () => get(`/orders/${id}`).then((r) => r.order),
+    enabled: Boolean(id),
+  });
+
+export const useTimeline = (id) =>
+  useQuery({
+    queryKey: orderKeys.timeline(id),
+    queryFn: () => get(`/orders/${id}/timeline`).then((r) => r.timeline),
+    enabled: Boolean(id),
+  });
+
+/**
+ * Every write against one order, sharing one success rule.
+ *
+ * The API answers each of these with the whole order — lines, collaborators, total, and a
+ * freshly derived `allowedNextStatuses` — so the detail cache is written from the response
+ * rather than re-fetched. That is one round trip instead of two, and it closes the window
+ * where the screen shows the old status because the refetch has not landed yet.
+ *
+ * The lists are invalidated rather than patched. A status change moves an order between status
+ * filters, an archive drops it out of the default view, and a new line changes its total: which
+ * of the cached pages that affects is a question the server can answer and this cannot.
+ *
+ * Alerts too — serving a slow order clears it, and acknowledging one suppresses it for ten
+ * minutes. The badge would otherwise keep its stale number until the next 45-second poll.
+ */
+export function useOrderMutation(orderId, mutationFn) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn,
+    onSuccess: (data) => {
+      if (data?.order) queryClient.setQueryData(orderKeys.detail(orderId), data.order);
+
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists });
+      queryClient.invalidateQueries({ queryKey: orderKeys.timeline(orderId) });
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
 /** §2. The one write that has no order to update yet — it creates one. */
 export function useCreateOrder() {
   const queryClient = useQueryClient();

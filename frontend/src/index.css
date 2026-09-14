@@ -595,3 +595,93 @@ tbody tr.clickable:hover {
 .filters input[type='search'] {
   width: auto;
 }
+
+/* ---------------------------------------------------------------- order detail */
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A voided line is struck through and dimmed, not removed. It still occupies a row on the bill
+ * because that is the difference between a correction and an erasure. */
+tr.voided td {
+  color: var(--text-faint);
+}
+tr.voided td:first-child > div:first-child,
+tr.voided td.right {
+  text-decoration: line-through;
+}
+tr.voided .faint {
+  text-decoration: none;
+}
+
+tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  background: var(--surface-2);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px 16px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.timeline li {
+  position: relative;
+  padding: 10px 0 10px 20px;
+  border-left: 2px solid var(--border);
+}
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.timeline li:last-child {
+  border-left-color: transparent;
+}
+
+.timeline-note {
+  margin: 3px 0;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------- fixes found by looking */
+
+/* The hint under a field is advice, not a problem. It had been sharing the .err class, which
+ * paints it the danger colour — every optional field read as a validation failure. */
+.field .hint {
+  display: block;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+
+/* `button { display: inline-flex }` above is an author rule, and author rules beat the user
+ * agent's stylesheet whatever their specificity. So it was overriding the UA's
+ * `[hidden] { display: none }`, and every <button type="submit" hidden> — the one that makes
+ * Enter submit a dialog without a second visible button — rendered as an empty grey box.
+ *
+ * !important rather than reordering, because this must outrank any later display rule too. */
+[hidden] {
+  display: none !important;
+}
