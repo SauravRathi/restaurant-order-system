@@ -11,14 +11,14 @@ Implementation prompts will be added in the same session as the code they produc
 
 *Cursor-AUTO*
 
-**Aim:** check my first design against the assignment before building anything on top of it.
+**Aim:** Check my first design against the assignment before building anything on top of it.
 
-**Asked:** gave it the assignment README and my initial list of entities and their attributes, and
+**Asked:** Gave it the assignment README and my initial list of entities and their attributes, and
 asked for a review.
 
-**Result:** it agreed with the structure.
+**Result:** It agreed with the structure.
 
-**Kept / changed:** kept as it was. Nothing changed at this stage.
+**Kept / changed:** Kept as it was. Nothing changed at this stage.
 
 ---
 
@@ -26,16 +26,16 @@ asked for a review.
 
 *Cursor-AUTO*
 
-**Aim:** decide the database model.
+**Aim:** Decide the database model.
 
-**Asked:** which model suits this project, and why.
+**Asked:** Which model suits this project, and why.
 
-**Result:** the reasoning now recorded in
+**Result:** The reasoning now recorded in
 [`decisions.md` → Decision 1](decisions.md#decision-1--choosing-the-database-model) — the schema here is fixed, the
 entities are densely related, and neither of NoSQL's two main benefits (variable schema, horizontal
 scaling) applies at this data volume.
 
-**Kept / changed:** adopted. Recorded as
+**Kept / changed:** Adopted. Recorded as
 [Decision 1](decisions.md#decision-1--choosing-the-database-model).
 
 ---
@@ -44,9 +44,9 @@ scaling) applies at this data volume.
 
 *Cursor-AUTO*
 
-**Aim:** turn the entities into tables, and settle one open question about collaborators.
+**Aim:** Turn the entities into tables, and settle one open question about collaborators.
 
-**Asked:** two things in the same prompt. First, review the tables I had drawn up from my entities.
+**Asked:** Two things in the same prompt. First, review the tables I had drawn up from my entities.
 Second, how should collaborators be stored — I gave it the two options I was choosing between, an
 array of user IDs on the order, or a separate join table.
 
@@ -58,7 +58,7 @@ array of user IDs on the order, or a separate join table.
 - On collaborators, the reasoning now recorded in
   [`decisions.md` → Decision 2](decisions.md#decision-2--a-join-table-for-collaborators-not-an-array).
 
-**Kept / changed:** adopted the data types and all. Took the join table.
+**Kept / changed:** Adopted the data types and all. Took the join table.
 
 ---
 
@@ -66,9 +66,9 @@ array of user IDs on the order, or a separate join table.
 
 *Claude Opus 5*
 
-**Aim:** list everything each role can do, and map those actions to endpoints. 
+**Aim:** List everything each role can do, and map those actions to endpoints. 
 
-**Asked:** listed all the actions a manager and a waiter can perform. I told it the purpose was to map
+**Asked:** Listed all the actions a manager and a waiter can perform. I told it the purpose was to map
 those actions onto API endpoints, so it had that context while listing.
 
 **Result:**
@@ -85,12 +85,12 @@ those actions onto API endpoints, so it had that context while listing.
 
 *Claude Opus 5*
 
-**Aim:** turn the design work into the five required files in `docs/`.
+**Aim:** Turn the design work into the five required files in `docs/`.
 
-**Asked:** dictated the content for each file and asked for well-formatted Markdown. One file at a
+**Asked:** Dictated the content for each file and asked for well-formatted Markdown. One file at a
 time.
 
-**Result:** drafts of all five, with three problems.
+**Result:** Drafts of all five, with three problems.
 
 1. **The language was unnecessarily complicated**, and padded with detail that did not need to be
    there.
@@ -112,14 +112,14 @@ time.
 
 *Claude Opus 5*
 
-**Aim:** check every document before committing, and make the references between them clickable.
+**Aim:** Check every document before committing, and make the references between them clickable.
 
-**Asked:** review all six Markdown files, and add anchors wherever one file refers to another.
+**Asked:** Review all six Markdown files, and add anchors wherever one file refers to another.
 
-**Result:** it pointed out some minor inconsistencies across the files, and added the reference
+**Result:** It pointed out some minor inconsistencies across the files, and added the reference
 anchors I asked for.
 
-**Kept / changed:** fixed the inconsistencies it found. Kept the anchors.
+**Kept / changed:** Fixed the inconsistencies it found. Kept the anchors.
 
 ---
 
@@ -127,15 +127,15 @@ anchors I asked for.
 
 *Claude Opus 5*
 
-**Aim:** turn the design work from sessions 1 and 2 into a real PostgreSQL database on Supabase.
+**Aim:** Turn the design work from sessions 1 and 2 into a real PostgreSQL database on Supabase.
 
 **Asked:** "Help me setup my database. It will be hosted on the free tier of Supabase. The
 information that you need to know will be found in README.md and docs."
 
-**Result:** the contents of `backend/` — `src/db.js`, two numbered migrations, the demo seed, four
+**Result:** The contents of `backend/` — `src/db.js`, two numbered migrations, the demo seed, four
 `db:*` scripts, and `backend/README.md`.
 
-**Kept / changed:** kept. The migrations and the seed were applied to Supabase.
+**Kept / changed:** Kept. The migrations and the seed were applied to Supabase.
 
 ---
 
@@ -143,18 +143,18 @@ information that you need to know will be found in README.md and docs."
 
 *Claude Opus 5*
 
-**Aim:** understand code written in a previous session while applying it to a real database.
+**Aim:** Understand code written in a previous session while applying it to a real database.
 
-**Asked:** walk through each file before that file is run — `db.js`, both migrations, the seed, then
+**Asked:** Walk through each file before that file is run — `db.js`, both migrations, the seed, then
 each script.
 
-**Result:** the explanation and the execution happened together: read `001_init.sql`, then apply it;
+**Result:** The explanation and the execution happened together: read `001_init.sql`, then apply it;
 read `002_lockdown.sql`, then apply it; read the seed, then run it. Two things surfaced that the
 comments did not mention. `db:status` is not read-only — it creates `schema_migrations` before
 deciding what to print. And the seed disables both append-only triggers before its `TRUNCATE`, where
 only the statement-level one is needed, because `TRUNCATE` does not fire row-level triggers at all.
 
-**Kept / changed:** no code changed — both are harmless. The understanding went into the commit
+**Kept / changed:** No code changed — both are harmless. The understanding went into the commit
 messages instead.
 
 ---
@@ -163,75 +163,108 @@ messages instead.
 
 *Claude Opus 5*
 
-**Aim:** check whether a Supabase account setting could do the same job as
+**Aim:** Check whether a Supabase account setting could do the same job as
 [`002_lockdown.sql`](../backend/migrations/002_lockdown.sql).
 
-**Asked:** did we need a migration to lock the database down, or could I change a setting on the
+**Asked:** Did we need a migration to lock the database down, or could I change a setting on the
 Supabase account so it does not generate those endpoints in the first place?
 
-**Result:** it had been presenting the migration as the only route. It is not — Supabase lets you
+**Result:** It had been presenting the migration as the only route. It is not — Supabase lets you
 disable the Data API for a project outright, or change which schemas are exposed. It also withdrew
 an earlier claim it had never measured, that `anon` and `authenticated` held read and write grants
 on the tables before `002` ran.
 
-**Kept / changed:** kept the migration. It is already written, and it is *testable* — `db:verify`
+**Kept / changed:** Kept the migration. It is already written, and it is *testable* — `db:verify`
 asserts that RLS is on and that those grants are gone. A dashboard setting is neither: it is not in
 the repository, and nothing in the project can assert that someone clicked it.
 
 ---
 
-## 10. Nothing to deploy yet
+## 10. The check that passed because of when it ran
 
 *Claude Opus 5*
 
-**Aim:** run the deployment test.
+**Aim:** Have a script I can run at any time that proves the database still enforces the rules
+[`schema.md`](schema.md) says it enforces.
+
+**Asked:** Write that script, separate from the tests.
+
+**Result:** `db:verify`, twenty-two checks. One of them was quietly broken.
+
+The rule being checked was this one: an order left too long raises an alert, and if someone
+dismisses that alert the order goes quiet for ten minutes and then starts alerting again. The demo
+data includes an order whose alert was dismissed two minutes ago, so it should still be quiet. The
+check said: that order is quiet.
+
+Which is true for the next eight minutes only. After that the ten minutes are up, the order starts
+alerting again, and the check is wrong. But it never ran late enough to find out, because
+`db:rebuild` loads the demo data and runs the checks one after the other, seconds apart. So it
+passed every single time it was run.
+
+**What the AI got wrong, and what I did:** The check described the data as it happened to look at
+that moment, instead of setting up the situation it wanted to test. That made it a check that could
+only pass — until it couldn't. It went red the first time I ran `db:verify` on its own, minutes
+after loading the data rather than seconds, in the final testing of the session.
+
+A green check that is wrong is worse than one that fails, because the whole point of `db:verify` is
+that I do not have to go and look for myself. I had it replaced with three checks that set up the
+state they need, look at it, and then undo it, so they give the same answer whenever they are run.
+One of the three covers the alert coming back after ten minutes, which nothing had tested before.
+
+---
+
+## 11. Nothing to deploy yet
+
+*Claude Opus 5*
+
+**Aim:** Run the deployment test.
 
 **Asked:** Let's run the deployment test now. (It had prior context)
 
-**Result:** it pushed back. The repository holds no start script or server. It suggested deployment after we have built the complete backend, which was risky, since deployment is a necessary part in the presentation of this project and can't be left till the last hour. 
+**Result:** It pushed back. The repository holds no start script or server. It suggested deployment after we have built the complete backend, which was risky, since deployment is a necessary part in the presentation of this project and can't be left till the last hour. 
 
-**Kept / changed:** directed it to create a throw-away server.
-
----
-
-## 11. A throwaway server, and the deployment test
-
-*Claude Opus 5*
-
-**Aim:** test the deployment path without waiting for the API to exist.
-
-**Asked:** write a throwaway server for the test. I
-
-**Result:** a 60-line server using Node's built-in `http` module and `src/db.js` as it already stood.
+**Kept / changed:** Directed it to create a throw-away server.
 
 ---
 
-## 12. Handing over session 4
+## 12. A throwaway server, and the deployment test
 
 *Claude Opus 5*
 
-**Aim:** hand over control with enough context that the coding could run without stopping to ask me
+**Aim:** Test the deployment path without waiting for the API to exist.
+
+**Asked:** Write a throwaway server for the test. I
+
+**Result:** A 60-line server using Node's built-in `http` module and `src/db.js` as it already stood.
+
+---
+
+## 13. Handing over session 4
+
+*Claude Opus 5*
+
+**Aim:** Hand over control with enough context that the coding could run without stopping to ask me
 which direction to take at each step.
 
-**Asked:** read `CLAUDE.md` for the current state and the API design, then build the pieces
+**Asked:** Read `CLAUDE.md` for the current state and the API design, then build the pieces
 everything else would need — password hashing, token signing, the middleware that turns a token into
 an identity, one error handler, one payload validator, and the rule for who can see an order written
 once as a reusable SQL fragment. Check each piece against the live database rather than asserting it
 works.
 
-**Result:** those pieces in that order, each run against the seeded users before the next. The
+**Result:** Those pieces in that order, each run against the seeded users before the next. The
 visibility rule went in before anything used it.
 
 
 ---
 
-## 13. The routes
+## 14. The routes
 
 *Claude Opus 5*
 
-**Aim:** build the API logic on top of those pieces.
+**Aim:** Build the API logic on top of those pieces.
 
-**Asked:** the endpoints in the order `api.md` sets them out — users, then the menu, then orders,
+**Asked:** The endpoints in the order `api.md` sets them out — users, then the menu, then orders,
 then alerts and the dashboard.
 
 **Result:** 26 routes. Each group was run against the live database as it was finished: sign-in and
@@ -241,30 +274,30 @@ in SQL.
 
 ---
 
-## 14. What §7 actually asks for in a bulk update
+## 15. What §7 actually asks for in a bulk update
 
 *Claude Opus 5*
 
-**Aim:** settle the bulk update. Applying one price to several different products does not make sense
+**Aim:** Settle the bulk update. Applying one price to several different products does not make sense
 on a real menu, and giving each its own price would be no different from updating them one at a time.
 
-**Asked:** why can we only set a single price across the selection?
+**Asked:** Why can we only set a single price across the selection?
 
-**Result:** it went back to the brief rather than arguing from our own notes. §7 says *"apply one
+**Result:** It went back to the brief rather than arguing from our own notes. §7 says *"apply one
 change to all of them — a new price or a change in availability"*, so the single shared price is the
 brief's wording. 
 
-**Kept / changed:** kept the single price. I considered a percentage increase instead, which is the
+**Kept / changed:** Kept the single price. I considered a percentage increase instead, which is the
 operation a real menu would actually want, and dropped it against the time budget, marked as review,
 if there is time left at the end.
 
 ---
 
-## 15. Keeping the checks instead of discarding them
+## 16. Keeping the checks instead of discarding them
 
 *Claude Opus 5*
 
-**Aim:** stop throwing away the scripts that tested each slice.
+**Aim:** Stop throwing away the scripts that tested each slice.
 
 **Asked:** We should build a re runnable test.
 
@@ -272,61 +305,59 @@ if there is time left at the end.
 
 ---
 
-## 16. Handing over session 5
+## 17. Handing over session 5
 
 *Claude Opus 5*
 
-**Aim:** build the browser client without re-explaining the project first.
+**Aim:** Build the browser client without re-explaining the project first.
 
-**Asked:** read `CLAUDE.md` for the current state, the design and the API as built, then write the
+**Asked:** Read `CLAUDE.md` for the current state, the design and the API as built, then write the
 client one component at a time in the order I set — scaffold, sign-in, the order board, one order,
 the menu, then the dashboard and alerts. 
 
-**Result:** the whole frontend in that order, each screen exercised against the live API before the
+**Result:** The whole frontend in that order, each screen exercised against the live API before the
 next one started.
 
 ---
 
-## 17. The negative price §7 asks for
+## 18. The negative price §7 asks for
 
 *Claude Opus 5*
 
-**Aim:** make the bulk update actually do what §7 describes.
+**Aim:** Make the bulk update actually do what §7 describes.
 
-**Asked:** we are not allowing negative prices, so a thing the brief explicitly mentions is not
+**Asked:** We are not allowing negative prices, so a thing the brief explicitly mentions is not
 being tested. We are not handling each request individually.
 
-**Result:** it confirmed the gap rather than defending the code. The strict price validator ran
+**Result:** It confirmed the gap rather than defending the code. The strict price validator ran
 before anything per-item could happen, so `price: -5` came back as a `422` with nothing touched and
 no report — the whole-batch failure the goal rules out, for the exact case the goal names.
 
-**Kept / changed:** changed. Value errors became per-item rejections inside a `200`; type errors
-still fail the request. Recorded as
-[Decision 12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields).
+**What the AI got wrong, and what I did:** Two faults in the same feature. In the menu
+editor, choosing a price and then switching to availability threw the price away, the two
+actions overrode each other instead of both being kept. And a negative price could not be
+tested at all, because the API refused the whole request on basis of invalid input (price >= 0). I found both by using the menu screen in UI testing. 
+
+I told it what was wrong and set out how the bulk feature should work instead. It still got
+the next two or three attempts wrong. What finally fixed it was me specifying the queue:
+each change is banked with the items chosen for it, and nothing is sent until Done.
+
 
 ---
 
 
-## 18. Rebuilding the menu editor until it matched how a manager works
+## 19. Deploying, with no experience of deploying
 
 *Claude Opus 5*
 
-**Aim:** stop the bulk controls losing work.
+**Aim:** Get the app onto Render. I have not deployed anything before.
 
-**Asked:** across several rounds — put both options at the top instead of a dialog asking which one
-I want; if I pick price, select items, then switch to availability, those items should be logged
-rather than silently carried over; make Apply a Queue button that banks the change and clears the
-fields, and apply everything on Done; and tell me where that queue is being held and what its limits
-are.
+**Asked:** Help me deploy this. What goes where, and in what order.
 
-**Result:** a queue module separate from the components. An operation is banked with the items
-selected at that moment, so a later one cannot overwrite it; two changes to the same item merge per
-field instead of replacing. It also gave the limits I asked for — twenty banked operations, the
-API's own 200 ids per request, and four requests in flight at once because the connection pool is
-five.
+**Result:** Both services live, in an order where each one's URL was the next one's input. It also
+caught two platform-specific faults I would not have known to look for: the connection string on the
+host was the direct one rather than the pooler, so nothing could reach the database; and
+`public/_redirects`, which it had written in session 5, is a Netlify convention that Render ignores,
+so every deep link returned 404.
 
-**Kept / changed:** kept. This is what made [Decision
-12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields) necessary.
-
----
-
+**Kept / changed:** Kept. The rewrite moved to a rule in Render.

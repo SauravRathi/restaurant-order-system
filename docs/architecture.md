@@ -115,4 +115,16 @@ being rewritten inside each route:
 
 ## What I decided not to build
 
-As of now, the goal is to implement exactly the 10 core requirements. 
+The scope is the ten goals. Below are things a reader might expect to find and will not, left out
+on purpose rather than run out of time for — what ran short is in
+[`plan.md` → What I cut](plan.md#what-i-cut-when-i-ran-short).
+
+| Not built | Why |
+|-----------|-----|
+| **Real-time updates** — websockets or server-sent events | The page asks the server for fresh data every so often — the alert count every 45 seconds — instead of the server pushing changes the moment they happen. For one restaurant that is enough, and it fails gently: if a request does not come back, the screen is a little out of date rather than quietly frozen. |
+| **Anything running in the background** — schedulers, queues, workers | Nothing runs on a timer. An order counts as slow purely because of when it was placed, so that is worked out from the database each time someone asks, rather than by a job waking up to go and mark orders. There is nothing extra to deploy or keep alive. |
+| **Server-side sessions, and revoking a token** | [Decision 10](decisions.md#decision-10--stateless-tokens-no-session-table). A token lasts one shift and signing out discards it |
+| **A cache** | Six tables and one restaurant’s worth of rows. The dashboard’s four queries answer in tens of milliseconds against indexes that already exist, and a cache would add a second version of the truth to keep honest |
+| **More than one restaurant** | There is no `restaurant_id` anywhere. The brief describes one independent restaurant, and tenancy would touch every table, every query and the visibility rule |
+| **Payments** | An order carries a total; nothing takes money. The brief stops when the food reaches the table |
+| **Password reset, and email of any kind** | A manager creates accounts through `POST /users`. Email means a provider, a template, a token flow and a deliverability problem, none of which any goal asks for |
