@@ -2,7 +2,28 @@
 // business logic runs — which is the whole reason the 422/409 split is meaningful: 422 means
 // we never got as far as looking at the order.
 
-import { unprocessable } from './errors.js';
+import { notFound, unprocessable } from './errors.js';
+
+// BIGSERIAL ids: at least one digit, no leading zero, and short enough that the value cannot
+// overflow int8. Without this guard `/menu-items/abc` reaches Postgres and comes back as
+// error 22P02 — an unhandled 500 for what is really just a bad URL.
+const ID_PATTERN = /^[1-9][0-9]{0,17}$/;
+
+/**
+ * Validate an id taken from the path. Returns it unchanged — as a string, which is what pg
+ * gives us for BIGINT and what it expects back.
+ *
+ * A malformed id is a 404 rather than a 422: the id is part of the path, so `/menu-items/abc`
+ * names a resource that cannot exist, which is the same answer as `/menu-items/999999`. It
+ * also keeps the 404 story from docs/api.md intact — every unreachable object looks alike,
+ * whether it is absent, malformed, or simply not yours.
+ */
+export function parseId(raw, what = 'Resource') {
+  if (typeof raw !== 'string' || !ID_PATTERN.test(raw)) {
+    throw notFound(`${what} not found`, { code: 'NOT_FOUND' });
+  }
+  return raw;
+}
 
 /**
  * Parse `body` against a zod schema, or throw a 422 listing every problem at once.

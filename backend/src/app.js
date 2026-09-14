@@ -7,6 +7,7 @@ import express from 'express';
 import { authRoutes } from './auth/routes.js';
 import { query } from './db.js';
 import { errorHandler, notFound } from './http/errors.js';
+import { menuRoutes } from './menu/routes.js';
 import { userRoutes } from './users/routes.js';
 
 export function createApp() {
@@ -48,6 +49,7 @@ export function createApp() {
 
   app.use('/auth', authRoutes());
   app.use('/users', userRoutes());
+  app.use('/menu-items', menuRoutes());
 
   // Nothing matched. Thrown rather than sent, so unknown routes and every other failure leave
   // through the same door and come back in the same shape.
