@@ -2,6 +2,7 @@
 // business logic runs — which is the whole reason the 422/409 split is meaningful: 422 means
 // we never got as far as looking at the order.
 
+import { z } from 'zod';
 import { notFound, unprocessable } from './errors.js';
 
 // BIGSERIAL ids: at least one digit, no leading zero, and short enough that the value cannot
@@ -24,6 +25,19 @@ export function parseId(raw, what = 'Resource') {
   }
   return raw;
 }
+
+/**
+ * The same id rule as a zod schema, for ids that arrive inside a body rather than in the path.
+ *
+ * A number is accepted as well as a string because JSON has no bigint and a client holding an
+ * id it read from us as `"12"` may well send it back as `12`. Both normalise to the string pg
+ * wants. Unlike parseId this yields 422, not 404 — an id list with `"abc"` in it is a
+ * malformed payload, and nothing has been touched yet.
+ */
+export const idSchema = z
+  .union([z.string(), z.number()], 'Must be an id')
+  .transform((v) => (typeof v === 'number' ? String(v) : v.trim()))
+  .refine((v) => ID_PATTERN.test(v), 'Must be a positive whole-number id');
 
 /**
  * Parse `body` against a zod schema, or throw a 422 listing every problem at once.

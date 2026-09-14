@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { query } from '../db.js';
 import { conflict, notFound } from '../http/errors.js';
-import { parseBody, parseId, parseQuery } from '../http/validate.js';
+import { idSchema, parseBody, parseId, parseQuery } from '../http/validate.js';
 import { MENU_COLUMNS, toMenuItem } from './serialize.js';
 
 // NUMERIC(10,2) holds at most eight digits before the point and two after.
@@ -60,6 +60,23 @@ const updateSchema = z
     isAvailable: z.boolean('isAvailable must be true or false').optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, 'Provide at least one field to update');
+
+// §7: "one new price OR one availability change" — exactly one, never both. Two different
+// changes in one sweep would make the per-item report ambiguous, because an item could then
+// half-succeed and there would be no honest single status to give it.
+const bulkSchema = z
+  .strictObject({
+    ids: z
+      .array(idSchema, 'ids must be an array of menu item ids')
+      .min(1, 'Select at least one menu item')
+      .max(200, 'At most 200 items at a time'),
+    price: priceSchema.optional(),
+    isAvailable: z.boolean('isAvailable must be true or false').optional(),
+  })
+  .refine(
+    (b) => (b.price !== undefined) !== (b.isAvailable !== undefined),
+    'Provide exactly one of price or isAvailable'
+  );
 
 // The PATCH whitelist. Columns come from this map and never from the request's own keys, so a
 // body cannot name a column that is not here.
@@ -119,6 +136,89 @@ export function menuRoutes() {
     } catch (err) {
       throw asNameConflict(err);
     }
+  });
+
+  // §7. Registered before the '/:id' routes so a literal path can never be read as an id.
+  //
+  // Partial success is the deliverable, so this is deliberately NOT wrapped in a transaction:
+  // rolling the whole sweep back because one of forty items was archived would be exactly the
+  // all-or-nothing behaviour the goal rules out. Each item stands or falls alone and every one
+  // of them is reported.
+  //
+  // The split between what fails the whole request and what fails one item is: shape errors —
+  // a malformed id, both price and isAvailable, an empty list — are 422 and nothing is
+  // touched; disagreements with the world are per-item rejections inside a 200.
+  router.post('/bulk', requireAuth, requireRole('manager'), async (req, res) => {
+    const { ids, price, isAvailable } = parseBody(bulkSchema, req.body);
+
+    // Deduplicated, keeping the order they were sent in, so the report reads back in the order
+    // the manager ticked the boxes and no id can appear in it twice.
+    const requested = [...new Set(ids)];
+
+    const column = price !== undefined ? 'price' : 'is_available';
+    const value = price !== undefined ? price : isAvailable;
+
+    // What is actually there, before changing anything. This is what lets a rejection say
+    // *which* reason it was rather than just "no".
+    const { rows: existing } = await query(
+      `SELECT id, archived_at FROM menu_items WHERE id = ANY($1::bigint[])`,
+      [requested]
+    );
+    const before = new Map(existing.map((row) => [row.id, row]));
+    const eligible = requested.filter((id) => before.get(id)?.archived_at === null);
+
+    const updated = new Map();
+    if (eligible.length > 0) {
+      // `AND archived_at IS NULL` is repeated here even though `eligible` was already filtered
+      // on it. The two statements are separate snapshots, so an item archived by someone else
+      // in between would otherwise be updated after all — the WHERE clause is the guard, and
+      // the classification above is only there to explain the outcome.
+      const { rows } = await query(
+        `UPDATE menu_items SET ${column} = $2
+          WHERE id = ANY($1::bigint[]) AND archived_at IS NULL
+      RETURNING ${MENU_COLUMNS}`,
+        [eligible, value]
+      );
+      for (const row of rows) updated.set(row.id, row);
+    }
+
+    const results = requested.map((id) => {
+      const row = updated.get(id);
+      if (row) return { id, status: 'updated', menuItem: toMenuItem(row) };
+
+      if (!before.has(id)) {
+        return { id, status: 'rejected', code: 'NOT_FOUND', reason: 'No menu item with that id' };
+      }
+      if (before.get(id).archived_at !== null) {
+        return {
+          id,
+          status: 'rejected',
+          code: 'ARCHIVED',
+          reason: 'That item is archived; restore it before changing it',
+        };
+      }
+      // Eligible a moment ago, not updated now: someone archived it in between.
+      return {
+        id,
+        status: 'rejected',
+        code: 'CHANGED_CONCURRENTLY',
+        reason: 'That item was archived while this update was running',
+      };
+    });
+
+    const updatedCount = results.filter((r) => r.status === 'updated').length;
+
+    // 200, not 207. The bulk operation itself succeeded — it did what was asked and is telling
+    // you what happened to each item. A status code describing the worst individual outcome
+    // would force a client to parse the body anyway, so the body is the report.
+    res.json({
+      summary: {
+        requested: results.length,
+        updated: updatedCount,
+        rejected: results.length - updatedCount,
+      },
+      results,
+    });
   });
 
   router.patch('/:id', requireAuth, requireRole('manager'), async (req, res) => {
