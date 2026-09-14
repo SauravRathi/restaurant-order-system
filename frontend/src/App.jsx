@@ -1,6 +1,7 @@
 // The route table.
 
 import { Navigate, Route, Routes } from 'react-router-dom';
+import AlertsPage from './alerts/AlertsPage.jsx';
 import LoginPage from './auth/LoginPage.jsx';
 import { RequireAuth } from './auth/RequireAuth.jsx';
 import MenuPage from './menu/MenuPage.jsx';
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/menu" element={<MenuPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
         </Route>
       </Route>
 
