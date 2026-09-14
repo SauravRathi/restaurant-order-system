@@ -1,0 +1,30 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local environment. Vite's default only covers *.local; a bare .env would otherwise be
+# committed. Nothing secret belongs in a VITE_ variable anyway — they are inlined into the
+# bundle at build time and ship to every browser — but the brief requires config out of the
+# repo, and .env.example is the file that documents it.
+.env
