@@ -79,9 +79,6 @@ those actions onto API endpoints, so it had that context while listing.
 - Produced the failure codes and the condition that causes each one, tied to specific actions rather
   than listed on their own.
 
-**Kept / changed:** kept. The paths are still placeholders and are marked as such in
-[`api.md`](api.md).
-
 ---
 
 ## 5. Writing the five documents
@@ -271,7 +268,65 @@ if there is time left at the end.
 
 **Asked:** We should build a re runnable test.
 
-**Result:** 66 tests on Node's built-in test runner. [`plan.md` → Session 4](plan.md#session-4--the-api).
+**Result:** 75 (updated from 66) tests on Node's built-in test runner. [`plan.md` → Session 4](plan.md#session-4--the-api).
+
+---
+
+## 16. Handing over session 5
+
+*Claude Opus 5*
+
+**Aim:** build the browser client without re-explaining the project first.
+
+**Asked:** read `CLAUDE.md` for the current state, the design and the API as built, then write the
+client one component at a time in the order I set — scaffold, sign-in, the order board, one order,
+the menu, then the dashboard and alerts. 
+
+**Result:** the whole frontend in that order, each screen exercised against the live API before the
+next one started.
+
+---
+
+## 17. The negative price §7 asks for
+
+*Claude Opus 5*
+
+**Aim:** make the bulk update actually do what §7 describes.
+
+**Asked:** we are not allowing negative prices, so a thing the brief explicitly mentions is not
+being tested. We are not handling each request individually.
+
+**Result:** it confirmed the gap rather than defending the code. The strict price validator ran
+before anything per-item could happen, so `price: -5` came back as a `422` with nothing touched and
+no report — the whole-batch failure the goal rules out, for the exact case the goal names.
+
+**Kept / changed:** changed. Value errors became per-item rejections inside a `200`; type errors
+still fail the request. Recorded as
+[Decision 12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields).
+
+---
+
+
+## 18. Rebuilding the menu editor until it matched how a manager works
+
+*Claude Opus 5*
+
+**Aim:** stop the bulk controls losing work.
+
+**Asked:** across several rounds — put both options at the top instead of a dialog asking which one
+I want; if I pick price, select items, then switch to availability, those items should be logged
+rather than silently carried over; make Apply a Queue button that banks the change and clears the
+fields, and apply everything on Done; and tell me where that queue is being held and what its limits
+are.
+
+**Result:** a queue module separate from the components. An operation is banked with the items
+selected at that moment, so a later one cannot overwrite it; two changes to the same item merge per
+field instead of replacing. It also gave the limits I asked for — twenty banked operations, the
+API's own 200 ids per request, and four requests in flight at once because the connection pool is
+five.
+
+**Kept / changed:** kept. This is what made [Decision
+12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields) necessary.
 
 ---
 

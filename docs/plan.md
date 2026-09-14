@@ -11,8 +11,8 @@ At the bottom of this document, there's a section 'Notes' which follows the time
 | **1. Designing**| Decide the tech stack for UI and backend. Identify actors at play, entites and their attributes. Decide on a database model (SQL v/s NoSQL). Convert the entities into tables. Identify the operations that need to be performed on each table, for better indexing.  | 3 h | ~3 h | 
 | **2. API endpoints, Formalize docs and first commit** | Identify all the actions a user (Manger/Waiter)can perform. Turn those actions into corresponding API endpoints. Turn the design work from the first session into the five `docs/` files and put them on github. | 3 h | ~4 h |
 | **3. Database, Test Hosting** | Create and connect to a Postgres Database. Initialize it with seed data. Test all required functions. Test run deployment. | 2 h | ~2 h | 
-| **4. Backend** | Implement the server (Node/Express) logic. Map what managers vs waiters can do to functions in our code and API endpoints. Run tests. | 3 h | — |
-| **5. Frontend** | Design components based on user needs. Decide on a theme. Run tests against all core requirements.| 3 h | — | 
+| **4. Backend** | Implement the server (Node/Express) logic. Map what managers vs waiters can do to functions in our code and API endpoints. Run tests. | 3 h | ~3 h |
+| **5. Frontend** | Design components based on user needs. Decide on a theme. Run tests against all core requirements.| 3 h | ~2 h | 
 | **6. Deploy + submit** | Host the app, demo seed, finish `SUBMISSION.md` / README. Final tests on the deployed app. | 2 h | — | 
 
 
@@ -28,7 +28,12 @@ At the bottom of this document, there's a section 'Notes' which follows the time
 
 ## What I cut when I ran short
 
-Nothing has been cut yet. 
+**Enforcing one open order per table number.** Built in session 5 — a `tables` table, a partial
+unique index over open orders, and the routes and tests to go with it — then dropped before it was
+committed. It reached into order creation, the seed and every test that invents a table name, and it
+arrived with the frontend unfinished and the deployment still ahead. A change that size, that late,
+risks the nine goals that already work to close one that the brief does not ask for. Two open orders
+on table 12 remain possible.
 
 ---
 
@@ -121,9 +126,38 @@ one **payload validator**, so every route rejects a bad body before any business
 rule for **who can see an order** — manager, primary waiter, or collaborator.
 
 Each slice was checked with throwaway scripts that printed what the code did rather than asserting
-it, then discarded. At the end I combined them into 66 tests and ran them against the whole backend,
+it, then discarded. At the end I combined them into 66 tests (Now 75) and ran them against the whole backend,
 the first time everything was checked together. Writing the checks twice was the avoidable cost.
 
 **Tests that pass prove nothing until you have seen them fail.** So I broke two rules on purpose —
 the visibility rule, then the one that stops a Preparing order being cancelled — confirmed the tests
 went red in the right places, and reverted both.
+
+The client was written at the end of this session too, straight on from the API. Going through it is
+[Session 5](#session-5--the-frontend).
+
+## Session 5 — The frontend
+
+*14 Sep 2026*
+
+The client itself was written in session 4, straight after the backend, while the shape of the API
+was still in front of me. This session was going through it.
+
+The look was settled before any of it was written: a minimal theme, so the features and the actions
+do not get lost in a complex UI. 
+
+Then component by component — sign in → the order board → one order → the menu → alerts and the
+dashboard. For each one I reviewed the code, opened the page in the browser and used it myself, then
+tested it against the existing APIs.
+
+**Using the menu editor is when I found the bug.** Select two items to reprice, switch to
+changing availability, and the price was gone with no sign it had ever been there.  Getting it right took several rounds
+([`ai-prompts.md` → 18](ai-prompts.md#18-rebuilding-the-menu-editor-until-it-matched-how-a-manager-works)),
+and it ended in a change to the API:
+[Decision 12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields), which
+reverses a rule session 4 had settled.
+
+The same pass found the alert badge lagging the board's "slow" tag. Not a second copy of the §10
+rule: two queries on two clocks, `/alerts/count` every 45 s for the badge and `/alerts` every 60 s
+for the list. The list now writes its own length into the badge's cache as it returns, so whichever
+answered last is what both read.

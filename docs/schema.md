@@ -11,7 +11,7 @@ timeline.
 |--------|------|--------|
 | `id` | `BIGSERIAL` PK | Surrogate key so email can change without cascading FKs |
 | `email` | `CITEXT` UNIQUE NOT NULL | Login identity (brief §1); case-insensitive |
-| `password_hash` | `TEXT` NOT NULL | Never store a raw password. Hashing algorithm is a candidate choice — see [`architecture.md`](architecture.md#how-the-pieces-talk) |
+| `password_hash` | `TEXT` NOT NULL | Never store a raw password. Hashing algorithm decided : bcryptjs |
 | `display_name` | `TEXT` NOT NULL | Shown in "orders by waiter" and filters |
 | `role` | `user_role` ENUM NOT NULL | `manager` \| `waiter` |
 | `phone` | `TEXT` | Optional contact; nothing in the brief requires it |
