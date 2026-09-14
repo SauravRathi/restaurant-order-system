@@ -13,7 +13,7 @@ At the bottom of this document, there's a section 'Notes' which follows the time
 | **3. Database, Test Hosting** | Create and connect to a Postgres Database. Initialize it with seed data. Test all required functions. Test run deployment. | 2 h | ~2 h | 
 | **4. Backend** | Implement the server (Node/Express) logic. Map what managers vs waiters can do to functions in our code and API endpoints. Run tests. | 3 h | ~3 h |
 | **5. Frontend** | Design components based on user needs. Decide on a theme. Run tests against all core requirements.| 3 h | ~2 h | 
-| **6. Deploy + submit** | Host the app, demo seed, finish `SUBMISSION.md` / README. Final tests on the deployed app. | 2 h | — | 
+| **6. Deploy + submit** | Host the app, demo seed, finish `SUBMISSION.md` / README. Final tests on the deployed app. | 2 h | ~2 h | 
 
 
 ## Order and why
@@ -28,12 +28,32 @@ At the bottom of this document, there's a section 'Notes' which follows the time
 
 ## What I cut when I ran short
 
-**Enforcing one open order per table number.** Built in session 5 — a `tables` table, a partial
-unique index over open orders, and the routes and tests to go with it — then dropped before it was
-committed. It reached into order creation, the seed and every test that invents a table name, and it
-arrived with the frontend unfinished and the deployment still ahead. A change that size, that late,
-risks the nine goals that already work to close one that the brief does not ask for. Two open orders
-on table 12 remain possible.
+**Two live orders can exist on the same table at once.** Nothing stops it. The root of it is that I
+missed tables as an entity in the design phase. I raised it in session 2 and was told the check
+could be done without making tables a thing of their own, so I left it there. By the time I came
+back to it while building the UI, adding it properly would have meant changing order creation, the
+seed and every test that invents a table name, too many files to risk with the deployment still
+ahead. It is a shallow edge case and it is not handled.
+
+**Nothing checks that a table number is a real table**, for the same reason. What I wanted was a
+picker, so a waiter chooses from the tables that exist instead of typing a number and hoping. With
+no table entity there is nothing to fill a picker from, so any short piece of text is accepted.
+
+**There is no landing page.** Signing in takes you straight to the orders board.
+
+**There is no screen for creating an account.** The API has the route `POST /users`, managers
+only, but nothing in the client reaches it, so every account in the demo comes from the seed and
+a manager cannot add a waiter without going near the API directly. The brief does not ask for it;
+my own API design did, and the UI never caught up.
+
+**There are no automated tests for the browser client.** The API has 75 and the
+database has 22 checks. The frontend has none, and every defect I found in it I found by
+clicking while doing the initial code review.
+
+**A percentage price change in the bulk update.** Setting a starter and a main course to the same
+number is not something a real menu ever wants; putting everything up five per cent is. I looked
+at it in session 4 and dropped it against the time budget —
+[`ai-prompts.md` → 15](ai-prompts.md#15-what-7-actually-asks-for-in-a-bulk-update).
 
 ---
 
@@ -102,8 +122,7 @@ verifying and resetting.
 I ran the checks, reset the database and rebuilt it from nothing to prove it could be.
 **`db:verify` went red when I ran it on its own later.** One of its checks was only true for the
 eight minutes after seeding, so it had passed every time since `db:rebuild` runs seed and verify seconds
-apart. Logged in [`ai-prompts.md`](ai-prompts.md) as the prompt that produced bad output. I replaced
-it with three checks that set the state they need and roll it back.
+apart. I replaced it with three checks that set the state they need and roll it back.
 
 Last, a new web service on Render running a throwaway server, to test the deployment path before the
 API exists. It proved the thing that mattered: Render can reach Supabase through the transaction
@@ -152,7 +171,7 @@ tested it against the existing APIs.
 
 **Using the menu editor is when I found the bug.** Select two items to reprice, switch to
 changing availability, and the price was gone with no sign it had ever been there.  Getting it right took several rounds
-([`ai-prompts.md` → 18](ai-prompts.md#18-rebuilding-the-menu-editor-until-it-matched-how-a-manager-works)),
+([`ai-prompts.md` → 18](ai-prompts.md#18-the-negative-price-7-asks-for)),
 and it ended in a change to the API:
 [Decision 12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields), which
 reverses a rule session 4 had settled.
@@ -161,3 +180,30 @@ The same pass found the alert badge lagging the board's "slow" tag. Not a second
 rule: two queries on two clocks, `/alerts/count` every 45 s for the badge and `/alerts` every 60 s
 for the list. The list now writes its own length into the badge's cache as it returns, so whichever
 answered last is what both read.
+
+## Session 6 — Deploy and submit
+
+*14 Sep 2026*
+
+- This session was the deployment and the testing that goes with it.
+
+- Rotate the database password → API → static site → tell the API which origin may read its answers
+  (CORS). The order was forced by a loop: the client needs the API's address baked in at build time,
+  and the API needs the client's origin before a browser will let a page read a response, and
+  neither URL exists until the service has been created. The deployment also got its own token
+  signing key rather than a copy of the development one.
+
+- Two things went wrong on the way, both belonging to the host rather than to the code. Written up
+  in [`ai-prompts.md` → 19](ai-prompts.md#19-deploying-with-no-experience-of-deploying).
+
+- The app stopped being called "frontend". It got a wordmark — BUSY WITH ORDERS — in the top bar and
+  on the sign-in card, a tab title, and a favicon in place of the scaffold's. The theme stayed
+  deliberately plain: nearly every screen here is a list and a few buttons that move an order to its
+  next state, and decoration would only bury them.
+
+- Then the testing, which is most of what this session actually was. I sent the link to friends and
+  had them open it on their own devices at the same time, signing in as different accounts and
+  tinkering with it. Alongside that I went through the features one at a time by hand, creating an
+  order, adding lines to it and voiding them, archiving and restoring menu items, running a bulk
+  update across several of them, and after each one looked in the database directly to check the
+  change had actually landed rather than just appearing to.

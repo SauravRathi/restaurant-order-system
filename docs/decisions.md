@@ -192,7 +192,7 @@ The full list, with reasoning for each, lives in
 
 - **Chose:** `POST /menu-items/bulk` takes price, availability and archiving in any combination, and
   reports each field separately for every item.
-- **Rejected:** session 4's rule — exactly one of price or availability, both together refused.
+- **Rejected:** session 4's rule of exactly one of price or availability, both together refused.
 - **Why:**
 
   §7 asks for "one change to all of them — a new price or a change in availability". Changing the
@@ -210,3 +210,48 @@ The full list, with reasoning for each, lives in
 
 ---
 
+- **Reversed from:** session 4, where exactly-one was built and tested. The old rule was
+  right that a mixed result would be ambiguous, and wrong to fix it by refusing to allow
+  the case.
+
+
+## Decision 13 — Tables as their own entity, started and abandoned
+
+- **Chose:** Leave the table as a plain text field on the order, the way it was originally designed.
+- **Rejected:** A `tables` table with orders pointing at it — which I started building, and then
+  backed out of.
+- **Why:**
+
+  I had missed tables as an entity in the design phase, and the gap became obvious once there
+  was a screen in front of me: nothing stops two live orders on one table, and nothing can offer a
+  waiter a list of real tables to choose from. So I began adding it, a table, a foreign key from
+  `orders`, seed rows, and the routes to go with it.
+
+  What stopped it was the blast radius. Every test creates orders against invented table names, so
+  every test would have had to provision a table first. The seed changed. Order creation changed. It
+  arrived with the frontend unfinished and the deployment still ahead, and risking nine goals that
+  worked to close one the brief never asks for was the wrong trade at that point.
+
+- **Reversed:** started and reverted inside the same session. None of it was committed, so there is
+  no migration `003` in this repository — the record of it is this entry and
+  [`plan.md` → What I cut](plan.md#what-i-cut-when-i-ran-short).
+
+---
+
+## Decision 14 — Render for both halves, in Singapore
+
+- **Chose:** Render — a static site for the browser client and a web service for the API, both in
+  the Singapore region.
+- **Rejected:** a serverless-first host for the API, and a region further from the database.
+- **Why:**
+
+  The API is a long-running process that holds a connection pool. `src/db.js` opens one pool and
+  keeps it, and `server.js` closes it on `SIGTERM`. A host that runs a function per request would
+  open connections per invocation, which is the thing Supabase's transaction pooler and
+  `PGPOOL_MAX=5` exist to avoid. Moving to one would have meant rewriting how the app reaches the
+  database, for nothing the brief asks for.
+
+  Putting both halves on one provider means one dashboard, one repository and one set of deploy
+  logs, which matters with a twelve hour budget.
+
+---
