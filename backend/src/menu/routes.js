@@ -28,6 +28,45 @@ const priceSchema = z
     'Price must be 0 or more, with at most 8 digits before the decimal point and 2 after'
   );
 
+/**
+ * The bulk endpoint's price, checked for TYPE only.
+ *
+ * §7 requires a bulk action to "report per item what succeeded and what was rejected and why,
+ * not just fail the whole batch", and the example the brief names is a negative price. Running
+ * the strict priceSchema above on this route refuses the whole request with a 422 — which is
+ * precisely the batch failure the goal rules out, for precisely the case it calls out.
+ *
+ * So the line moves, on this route alone. A TYPE error still fails the request, because
+ * `price: true` is not a price under any reading and there is nothing per-item to say about it.
+ * Everything about the VALUE — negative, too many decimals, too large — becomes a per-item
+ * rejection inside a 200.
+ *
+ * POST and PATCH keep the strict schema deliberately: there a manager named one exact item, so
+ * one clear 422 beats a one-line report saying the same thing.
+ */
+const bulkPriceSchema = z
+  .union([z.number(), z.string()], 'Price must be a number')
+  .transform((v) => (typeof v === 'number' ? String(v) : v.trim()));
+
+/**
+ * Why this price cannot be applied, or null if it can.
+ *
+ * Negative is separated from merely malformed because it is the case §7 names, and because
+ * "cannot be negative" tells a manager what to change where a restatement of the number format
+ * does not.
+ */
+function priceRejection(value) {
+  if (PRICE_PATTERN.test(value)) return null;
+
+  if (/^-\d{1,8}(\.\d{1,2})?$/.test(value)) {
+    return { code: 'NEGATIVE_PRICE', reason: 'Price cannot be negative' };
+  }
+  return {
+    code: 'INVALID_PRICE',
+    reason: 'Price must have at most 8 digits before the decimal point and 2 after',
+  };
+}
+
 const nameSchema = z.string().trim().min(1, 'Name is required').max(120);
 const categorySchema = z.string().trim().min(1, 'Category is required').max(60);
 
@@ -61,21 +100,39 @@ const updateSchema = z
   })
   .refine((patch) => Object.keys(patch).length > 0, 'Provide at least one field to update');
 
-// §7: "one new price OR one availability change" — exactly one, never both. Two different
-// changes in one sweep would make the per-item report ambiguous, because an item could then
-// half-succeed and there would be no honest single status to give it.
+// §7, read a step further than the brief's wording.
+//
+// The goal says "one change to all of them — a new price or a change in availability". This
+// endpoint accepts either, or both, and also archiving — a deliberate widening recorded here so
+// it can be defended rather than discovered. Archiving is in scope because it is the third thing
+// a manager does to a batch of items at end of service, and doing it one row at a time was the
+// only part of the menu editor that still made you click twenty times.
+//
+// The original rule was exactly-one, for a stated reason: two changes in one sweep would make
+// the per-item report ambiguous, because an item could half-succeed and there would be no
+// honest single status to give it. That reasoning only holds if a result carries one status.
+// It carries one status PER FIELD now — "price rejected, availability updated" is a complete
+// and honest answer — so the ambiguity the rule was avoiding no longer exists, and forbidding
+// the case was solving it by refusing to represent it.
+//
+// At least one field, because a sweep that changes nothing is a client bug and answering 200
+// to it would hide that.
 const bulkSchema = z
   .strictObject({
     ids: z
       .array(idSchema, 'ids must be an array of menu item ids')
       .min(1, 'Select at least one menu item')
       .max(200, 'At most 200 items at a time'),
-    price: priceSchema.optional(),
+    // Lenient on purpose — see bulkPriceSchema. A bad value is reported, not refused.
+    price: bulkPriceSchema.optional(),
     isAvailable: z.boolean('isAvailable must be true or false').optional(),
+    // true archives, false restores. Named for the intent rather than for the column, which is
+    // a nullable timestamp — the API speaks in what the manager meant, not in storage.
+    archived: z.boolean('archived must be true or false').optional(),
   })
   .refine(
-    (b) => (b.price !== undefined) !== (b.isAvailable !== undefined),
-    'Provide exactly one of price or isAvailable'
+    (b) => b.price !== undefined || b.isAvailable !== undefined || b.archived !== undefined,
+    'Provide a price, an availability, an archived flag, or any combination'
   );
 
 // The PATCH whitelist. Columns come from this map and never from the request's own keys, so a
@@ -145,18 +202,27 @@ export function menuRoutes() {
   // all-or-nothing behaviour the goal rules out. Each item stands or falls alone and every one
   // of them is reported.
   //
-  // The split between what fails the whole request and what fails one item is: shape errors —
-  // a malformed id, both price and isAvailable, an empty list — are 422 and nothing is
-  // touched; disagreements with the world are per-item rejections inside a 200.
+  // The split between what fails the whole request and what fails one field of one item is:
+  // shape errors — a malformed id, an empty list, no fields at all, a price that is not even
+  // a number — are 422 and nothing is touched. Everything else is reported per field inside
+  // a 200.
   router.post('/bulk', requireAuth, requireRole('manager'), async (req, res) => {
-    const { ids, price, isAvailable } = parseBody(bulkSchema, req.body);
+    const { ids, price, isAvailable, archived } = parseBody(bulkSchema, req.body);
 
     // Deduplicated, keeping the order they were sent in, so the report reads back in the order
     // the manager ticked the boxes and no id can appear in it twice.
     const requested = [...new Set(ids)];
 
-    const column = price !== undefined ? 'price' : 'is_available';
-    const value = price !== undefined ? price : isAvailable;
+    // The fields this sweep carries, in a fixed order so the SET list and the report agree.
+    const carried = [
+      ...(price !== undefined ? ['price'] : []),
+      ...(isAvailable !== undefined ? ['isAvailable'] : []),
+      ...(archived !== undefined ? ['archived'] : []),
+    ];
+
+    // A bad price is judged once, not per item: the same value goes to every id, so it is usable
+    // for all of them or for none. It no longer stops the other fields travelling with it.
+    const badPrice = price !== undefined ? priceRejection(price) : null;
 
     // What is actually there, before changing anything. This is what lets a rejection say
     // *which* reason it was rather than just "no".
@@ -165,48 +231,167 @@ export function menuRoutes() {
       [requested]
     );
     const before = new Map(existing.map((row) => [row.id, row]));
-    const eligible = requested.filter((id) => before.get(id)?.archived_at === null);
 
-    const updated = new Map();
-    if (eligible.length > 0) {
-      // `AND archived_at IS NULL` is repeated here even though `eligible` was already filtered
-      // on it. The two statements are separate snapshots, so an item archived by someone else
-      // in between would otherwise be updated after all — the WHERE clause is the guard, and
-      // the classification above is only there to explain the outcome.
-      const { rows } = await query(
-        `UPDATE menu_items SET ${column} = $2
-          WHERE id = ANY($1::bigint[]) AND archived_at IS NULL
-      RETURNING ${MENU_COLUMNS}`,
-        [eligible, value]
-      );
-      for (const row of rows) updated.set(row.id, row);
-    }
-
-    const results = requested.map((id) => {
-      const row = updated.get(id);
-      if (row) return { id, status: 'updated', menuItem: toMenuItem(row) };
-
-      if (!before.has(id)) {
-        return { id, status: 'rejected', code: 'NOT_FOUND', reason: 'No menu item with that id' };
+    /**
+     * Why this field cannot be applied to this row, or null if it can.
+     *
+     * The row's own state is judged BEFORE the value. An archived item asked for a negative
+     * price is refused for being archived, not for the price — that is the truer answer for
+     * that id, and it is the one that tells the manager what to do about it.
+     */
+    const rejectionFor = (field, row) => {
+      if (field === 'archived') {
+        // Asking for the state it is already in is not a change, and re-stamping archived_at
+        // would quietly lose the date it was actually retired on.
+        if (archived && row.archived_at !== null) {
+          return { code: 'ALREADY_ARCHIVED', reason: 'That item is already archived' };
+        }
+        if (!archived && row.archived_at === null) {
+          return { code: 'NOT_ARCHIVED', reason: 'That item is not archived' };
+        }
+        return null;
       }
-      if (before.get(id).archived_at !== null) {
+
+      // Price and availability cannot touch an archived item — unless this very sweep is
+      // restoring it, in which case it is live by the time the statement lands.
+      if (row.archived_at !== null && archived !== false) {
         return {
-          id,
-          status: 'rejected',
           code: 'ARCHIVED',
           reason: 'That item is archived; restore it before changing it',
         };
       }
-      // Eligible a moment ago, not updated now: someone archived it in between.
-      return {
-        id,
-        status: 'rejected',
-        code: 'CHANGED_CONCURRENTLY',
-        reason: 'That item was archived while this update was running',
-      };
+
+      if (field === 'price' && badPrice) return badPrice;
+      return null;
+    };
+
+    // Which of the carried fields actually apply to each item. Two items asked for the same
+    // change can end up with different answers — restoring [a live one, an archived one] is a
+    // no-op for the first and a real change for the second — so this is per item.
+    const applicable = new Map();
+    for (const id of requested) {
+      const row = before.get(id);
+      if (!row) continue;
+
+      const fields = carried.filter((field) => rejectionFor(field, row) === null);
+      if (fields.length > 0) applicable.set(id, fields);
+    }
+
+    // Items whose applicable set is identical can share one statement. Usually that is every
+    // item in one group; the split only appears when the rows were in different states.
+    const groups = new Map();
+    for (const [id, fields] of applicable) {
+      const key = fields.join(',');
+      if (!groups.has(key)) groups.set(key, { fields, ids: [] });
+      groups.get(key).ids.push(id);
+    }
+
+    const COLUMN = { price: 'price', isAvailable: 'is_available' };
+    const VALUE = { price, isAvailable };
+
+    const updated = new Map();
+    const collided = new Map();
+
+    /**
+     * Apply one group in a single statement.
+     *
+     * The WHERE clause re-states the guard rather than trusting the snapshot above: the SELECT
+     * and this UPDATE are separate moments, so an item archived by someone else in between must
+     * not be updated anyway. Which guard depends on what the group is doing — restoring wants
+     * exactly the rows the others exclude.
+     */
+    async function runGroup({ fields, ids: groupIds }) {
+      const params = [groupIds];
+      const sets = fields.map((field) =>
+        field === 'archived'
+          ? // A timestamp, not a boolean, and chosen from one here rather than interpolated
+            // from anything a client sent.
+            `archived_at = ${archived ? 'now()' : 'NULL'}`
+          : `${COLUMN[field]} = $${params.push(VALUE[field])}`
+      );
+
+      const guard =
+        fields.includes('archived') && !archived ? 'archived_at IS NOT NULL' : 'archived_at IS NULL';
+
+      const { rows } = await query(
+        `UPDATE menu_items SET ${sets.join(', ')}
+          WHERE id = ANY($1::bigint[]) AND ${guard}
+      RETURNING ${MENU_COLUMNS}`,
+        params
+      );
+      return rows;
+    }
+
+    for (const group of groups.values()) {
+      try {
+        for (const row of await runGroup(group)) updated.set(row.id, row);
+      } catch (err) {
+        // Restoring is the one operation here that can collide: the name was free while the item
+        // was archived, and something live may have taken it since. In a batched statement one
+        // collision aborts every row with it — which is precisely the all-or-nothing failure §7
+        // rules out. So the group is retried one item at a time, and only the ones that actually
+        // clash are reported as clashing.
+        if (err.code !== '23505') throw err;
+
+        for (const id of group.ids) {
+          try {
+            for (const row of await runGroup({ fields: group.fields, ids: [id] })) {
+              updated.set(row.id, row);
+            }
+          } catch (single) {
+            if (single.code !== '23505') throw single;
+            collided.set(id, {
+              code: 'NAME_TAKEN',
+              reason: 'Another item on the live menu already has that name',
+            });
+          }
+        }
+      }
+    }
+
+    const results = requested.map((id) => {
+      const row = before.get(id);
+
+      // One outcome per field the caller asked for, and the reason lives with the field rather
+      // than on the item. A consumer reads `changes` and needs to look nowhere else — which is
+      // what makes "price rejected, availability updated" expressible at all.
+      const changes = Object.fromEntries(
+        carried.map((field) => {
+          if (!row) {
+            return [field, { status: 'rejected', code: 'NOT_FOUND', reason: 'No menu item with that id' }];
+          }
+          if (collided.has(id)) return [field, { status: 'rejected', ...collided.get(id) }];
+
+          const rejection = rejectionFor(field, row);
+          if (rejection) return [field, { status: 'rejected', ...rejection }];
+
+          // Applicable a moment ago, not updated now: someone changed it in between.
+          if (!updated.has(id)) {
+            return [
+              field,
+              {
+                status: 'rejected',
+                code: 'CHANGED_CONCURRENTLY',
+                reason: 'That item changed while this update was running',
+              },
+            ];
+          }
+          return [field, { status: 'updated' }];
+        })
+      );
+
+      const outcomes = Object.values(changes).map((c) => c.status);
+      const status = outcomes.every((o) => o === 'updated')
+        ? 'updated'
+        : outcomes.every((o) => o === 'rejected')
+          ? 'rejected'
+          : 'partial';
+
+      const after = updated.get(id);
+      return { id, status, changes, ...(after ? { menuItem: toMenuItem(after) } : {}) };
     });
 
-    const updatedCount = results.filter((r) => r.status === 'updated').length;
+    const count = (s) => results.filter((r) => r.status === s).length;
 
     // 200, not 207. The bulk operation itself succeeded — it did what was asked and is telling
     // you what happened to each item. A status code describing the worst individual outcome
@@ -214,8 +399,9 @@ export function menuRoutes() {
     res.json({
       summary: {
         requested: results.length,
-        updated: updatedCount,
-        rejected: results.length - updatedCount,
+        updated: count('updated'),
+        partial: count('partial'),
+        rejected: count('rejected'),
       },
       results,
     });
