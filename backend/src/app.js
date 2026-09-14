@@ -8,6 +8,7 @@ import { alertRoutes } from './alerts/routes.js';
 import { authRoutes } from './auth/routes.js';
 import { dashboardRoutes } from './dashboard/routes.js';
 import { query } from './db.js';
+import { cors } from './http/cors.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { menuRoutes } from './menu/routes.js';
 import { orderRoutes } from './orders/routes.js';
@@ -17,6 +18,10 @@ export function createApp() {
   const app = express();
 
   app.disable('x-powered-by'); // no free advertising of the stack
+
+  // First, and before the body parser: a preflight has no body to parse and should be answered
+  // and finished with, not carried through the rest of the stack.
+  app.use(cors());
 
   app.use(express.json({ limit: '100kb' }));
 
