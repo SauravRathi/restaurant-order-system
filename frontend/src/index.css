@@ -685,3 +685,163 @@ tfoot td {
 [hidden] {
   display: none !important;
 }
+
+/* ---------------------------------------------------------------- menu editor */
+
+/* Edit mode. A near-full-screen dialog rather than a panel on the page, so showModal() can make
+ * everything behind it inert — see MenuEditor.jsx. The visible signal that you are in a
+ * different mode is the backdrop plus the banded header; the enforcement is the browser's. */
+.editor {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(1000px, calc(100vw - 40px));
+  height: min(760px, calc(100vh - 40px));
+  max-width: none;
+  max-height: none;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 60px rgb(16 22 29 / 26%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Darker than a plain modal's. Edit mode is a state you are in, not a question you are
+ * answering, so the page behind should read as firmly set aside. */
+.editor::backdrop {
+  background: rgb(16 22 29 / 58%);
+}
+
+.editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* The list scrolls, the header and toolbar do not. Done stays reachable at any scroll position. */
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+
+.editor-body .notice:empty {
+  display: none;
+}
+
+/* A clickable row needs to look clickable and to show focus, since it is a <tr> standing in for
+ * a button and gets none of that by default. */
+.editor-body tbody tr.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------- bulk picker */
+
+.picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.picker-row:last-child {
+  border-bottom: none;
+}
+.picker-row:hover {
+  background: var(--surface-2);
+}
+
+/* A checkbox and its text wrapped in a <label class="row"> inherited `display: flex`, which
+ * stretches the label to the full width of its container. The whole of that width is a click
+ * target — so a click in empty space several hundred pixels from the control still toggles it.
+ * inline-flex makes the label exactly as wide as the checkbox plus its words. */
+label.row {
+  display: inline-flex;
+}
+
+/* ---------------------------------------------------------------- bulk queue */
+
+.queue {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.queue-row:last-of-type {
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------------- bulk bar */
+
+.bulk-bar {
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* A selected row in the editor's list. There are no checkboxes on it — the row itself is the
+ * control — so the selected state has to be unmistakable from the row alone. */
+tbody tr.selected td {
+  background: var(--accent-soft);
+}
+tbody tr.selected:hover td {
+  background: #dce9fa;
+}
+
+.tick {
+  color: transparent;
+  font-weight: 700;
+}
+tr.selected .tick,
+.tick.on {
+  color: var(--accent);
+}
+
+/* The queued list sits above the scrolling table, so it must not be allowed to push the table
+ * off screen. Twenty banked operations would do exactly that. */
+.queue {
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+/* Archived items live in their own section at the foot of the editor, not interleaved with the
+ * working menu. The separation is the point, so it gets a real gap and a rule above it. */
+.archived-section {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 2px solid var(--border);
+}
+

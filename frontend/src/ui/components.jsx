@@ -1,5 +1,6 @@
 // The small shared pieces. Everything here is presentational.
 
+import { cloneElement, isValidElement, useId } from 'react';
 import { statusLabel } from './format.js';
 
 export const Spinner = ({ large }) => <span className={large ? 'spinner lg' : 'spinner'} />;
@@ -50,14 +51,30 @@ export const EmptyState = ({ title, children }) => (
   </div>
 );
 
-/** A labelled input that can carry a server-side message from a 422's `details`. */
+/**
+ * A labelled control that can carry a server-side message from a 422's `details`.
+ *
+ * The wrapper is a <div> with a separate <label htmlFor>, NOT a <label> wrapped around the
+ * control. That distinction is load-bearing and cost a real bug: a <select> nested inside its
+ * own <label> has the label's activation behaviour forwarded back to it, so the dropdown opens
+ * and closes again in the same gesture and the value can never be changed. Availability was
+ * stuck on "Available to order" for exactly this reason.
+ *
+ * Associating by id keeps everything a wrapping label bought — clicking the text still focuses
+ * the control, and screen readers still announce it — without the control being a descendant
+ * of the thing forwarding clicks to it.
+ */
 export function Field({ label, error, children, hint }) {
+  // useId gives a value stable across renders and unique per instance, which is what makes
+  // htmlFor safe in a component rendered more than once on a page.
+  const id = useId();
+
   return (
-    <label className={`field${error ? ' invalid' : ''}`}>
-      {label && <span>{label}</span>}
-      {children}
+    <div className={`field${error ? ' invalid' : ''}`}>
+      {label && <label htmlFor={id}>{label}</label>}
+      {isValidElement(children) ? cloneElement(children, { id }) : children}
       {hint && !error && <span className="hint">{hint}</span>}
       {error && <span className="err">{error}</span>}
-    </label>
+    </div>
   );
 }
