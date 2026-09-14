@@ -185,3 +185,28 @@ The full list, with reasoning for each, lives in
   nobody can go hunting for other people's tables by trying one id after another and watching
   which ones answer differently.
 
+
+---
+
+## Decision 12 — The bulk update takes any combination of fields
+
+- **Chose:** `POST /menu-items/bulk` takes price, availability and archiving in any combination, and
+  reports each field separately for every item.
+- **Rejected:** session 4's rule — exactly one of price or availability, both together refused.
+- **Why:**
+
+  §7 asks for "one change to all of them — a new price or a change in availability". Changing the
+  price of several food items in one click did not make clear sense: different products would end up
+  at the same price. And giving each one its own price option would just be the same as making an
+  individual change one at a time.
+
+  I decided on a queue structure for that instead, which is very flexible. You can apply all three
+  actions to the same item multiple times and it smartly keeps the last one. The different actions
+  do not mess with each other — if you are archiving an item you can still change its price, still
+  get the rejected verdict on it, and still change its availability.
+
+  The other half is a §7 fix. The brief names a negative price as its example of a per-item
+  rejection, but the price check ran before anything else, we were never able to test that rejection. 
+
+---
+

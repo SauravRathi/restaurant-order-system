@@ -1,0 +1,890 @@
+/* One stylesheet, plain CSS.
+ *
+ * No Tailwind and no CSS-in-JS: neither was a decided technology, both are another dependency
+ * and another build step, and this app has one designer and about a dozen screens. Variables
+ * below are the whole design system — change a colour here and it changes everywhere.
+ */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f2f4f7;
+  --border: #dfe3e8;
+  --border-strong: #c3cad3;
+
+  --text: #10161d;
+  --text-muted: #5c6773;
+  --text-faint: #8b96a3;
+
+  --accent: #1a5fb4;
+  --accent-hover: #17509a;
+  --accent-soft: #e8f0fb;
+
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
+  --warn: #8a5000;
+  --warn-soft: #fff4e0;
+  --ok: #1a6b3c;
+  --ok-soft: #e6f4ec;
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --shadow: 0 1px 2px rgb(16 22 29 / 6%), 0 2px 8px rgb(16 22 29 / 4%);
+
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: 22px;
+}
+h2 {
+  font-size: 17px;
+}
+h3 {
+  font-size: 14px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar .brand {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.topbar .brand:hover {
+  text-decoration: none;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.topbar nav a {
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-weight: 550;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.topbar nav a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.topbar nav a.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.whoami {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 20px 56px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.page-head p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------- surfaces */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.card-head {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-body {
+  padding: 16px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+.faint {
+  color: var(--text-faint);
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.right {
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- controls */
+
+button,
+.btn {
+  font: inherit;
+  font-weight: 550;
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+button:hover:not(:disabled),
+.btn:hover {
+  background: var(--surface-2);
+  text-decoration: none;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary,
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button.primary:hover:not(:disabled),
+.btn.primary:hover {
+  background: var(--accent-hover);
+}
+
+button.danger {
+  color: var(--danger);
+  border-color: #e8b4b0;
+}
+button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+}
+
+button.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+}
+button.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+button.small,
+.btn.small {
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 7px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+input[type='checkbox'] {
+  width: auto;
+}
+
+.field {
+  display: block;
+  margin-bottom: 13px;
+}
+/* The field's own <label>. It is a sibling of the control now, not its parent — see Field in
+ * ui/components.jsx for why that matters. */
+.field > label {
+  display: block;
+  font-weight: 550;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.field .err {
+  display: block;
+  color: var(--danger);
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+.field.invalid input,
+.field.invalid select {
+  border-color: var(--danger);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- table */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr.clickable {
+  cursor: pointer;
+}
+tbody tr.clickable:hover {
+  background: var(--surface-2);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------- badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.badge.placed {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.badge.accepted {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: #c5d9f2;
+}
+.badge.preparing {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: #f0dcb4;
+}
+.badge.ready {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: #bfe0cd;
+}
+.badge.served {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.badge.cancelled {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #efc4c0;
+}
+
+.badge.alert {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #efc4c0;
+}
+.badge.archived {
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+
+.count-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- notices */
+
+.notice {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  margin-bottom: 16px;
+}
+.notice.error {
+  background: var(--danger-soft);
+  border-color: #efc4c0;
+  color: var(--danger);
+}
+.notice.warn {
+  background: var(--warn-soft);
+  border-color: #f0dcb4;
+  color: var(--warn);
+}
+.notice.ok {
+  background: var(--ok-soft);
+  border-color: #bfe0cd;
+  color: var(--ok);
+}
+.notice strong {
+  font-weight: 650;
+}
+.notice ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.empty {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.empty h3 {
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- spinner */
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+  flex: none;
+}
+.spinner.lg {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 44px;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* ---------------------------------------------------------------- login */
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 28px;
+}
+
+.login-card h1 {
+  margin-bottom: 3px;
+}
+
+.login-card > p {
+  margin: 0 0 22px;
+  color: var(--text-muted);
+}
+
+.demo-creds {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.demo-creds button {
+  font-size: 12.5px;
+  padding: 3px 8px;
+}
+
+/* ---------------------------------------------------------------- modal */
+
+.modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 80px);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgb(16 22 29 / 18%);
+}
+
+.modal::backdrop {
+  background: rgb(16 22 29 / 40%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-body {
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------------- filter bar */
+
+/* Inputs default to width:100% so they fill a form column. Inside the filter row they should
+ * be the size of their content instead, or a <select> with two options takes a third of the
+ * screen. */
+.filters select,
+.filters input[type='date'],
+.filters input[type='search'] {
+  width: auto;
+}
+
+/* ---------------------------------------------------------------- order detail */
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A voided line is struck through and dimmed, not removed. It still occupies a row on the bill
+ * because that is the difference between a correction and an erasure. */
+tr.voided td {
+  color: var(--text-faint);
+}
+tr.voided td:first-child > div:first-child,
+tr.voided td.right {
+  text-decoration: line-through;
+}
+tr.voided .faint {
+  text-decoration: none;
+}
+
+tfoot td {
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+  background: var(--surface-2);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px 16px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.timeline li {
+  position: relative;
+  padding: 10px 0 10px 20px;
+  border-left: 2px solid var(--border);
+}
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 16px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.timeline li:last-child {
+  border-left-color: transparent;
+}
+
+.timeline-note {
+  margin: 3px 0;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------- dashboard */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  padding: 14px 16px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+.stat-value.danger {
+  color: var(--danger);
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+}
+
+/* Recharts renders an SVG that sizes itself to its container. Without this the container has no
+ * width to measure on first paint and the chart collapses to nothing. */
+.recharts-wrapper {
+  font-family: var(--font);
+}
+
+/* ---------------------------------------------------------------- fixes found by looking */
+
+/* The hint under a field is advice, not a problem. It had been sharing the .err class, which
+ * paints it the danger colour — every optional field read as a validation failure. */
+.field .hint {
+  display: block;
+  color: var(--text-faint);
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+
+/* `button { display: inline-flex }` above is an author rule, and author rules beat the user
+ * agent's stylesheet whatever their specificity. So it was overriding the UA's
+ * `[hidden] { display: none }`, and every <button type="submit" hidden> — the one that makes
+ * Enter submit a dialog without a second visible button — rendered as an empty grey box.
+ *
+ * !important rather than reordering, because this must outrank any later display rule too. */
+[hidden] {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- menu editor */
+
+/* Edit mode. A near-full-screen dialog rather than a panel on the page, so showModal() can make
+ * everything behind it inert — see MenuEditor.jsx. The visible signal that you are in a
+ * different mode is the backdrop plus the banded header; the enforcement is the browser's. */
+.editor {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(1000px, calc(100vw - 40px));
+  height: min(760px, calc(100vh - 40px));
+  max-width: none;
+  max-height: none;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 60px rgb(16 22 29 / 26%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Darker than a plain modal's. Edit mode is a state you are in, not a question you are
+ * answering, so the page behind should read as firmly set aside. */
+.editor::backdrop {
+  background: rgb(16 22 29 / 58%);
+}
+
+.editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* The list scrolls, the header and toolbar do not. Done stays reachable at any scroll position. */
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+}
+
+.editor-body .notice:empty {
+  display: none;
+}
+
+/* A clickable row needs to look clickable and to show focus, since it is a <tr> standing in for
+ * a button and gets none of that by default. */
+.editor-body tbody tr.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------- bulk picker */
+
+.picker {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.picker-row:last-child {
+  border-bottom: none;
+}
+.picker-row:hover {
+  background: var(--surface-2);
+}
+
+/* A checkbox and its text wrapped in a <label class="row"> inherited `display: flex`, which
+ * stretches the label to the full width of its container. The whole of that width is a click
+ * target — so a click in empty space several hundred pixels from the control still toggles it.
+ * inline-flex makes the label exactly as wide as the checkbox plus its words. */
+label.row {
+  display: inline-flex;
+}
+
+/* ---------------------------------------------------------------- bulk queue */
+
+.queue {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.queue-row:last-of-type {
+  border-bottom: none;
+}
+
+/* ---------------------------------------------------------------- bulk bar */
+
+.bulk-bar {
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* A selected row in the editor's list. There are no checkboxes on it — the row itself is the
+ * control — so the selected state has to be unmistakable from the row alone. */
+tbody tr.selected td {
+  background: var(--accent-soft);
+}
+tbody tr.selected:hover td {
+  background: #dce9fa;
+}
+
+.tick {
+  color: transparent;
+  font-weight: 700;
+}
+tr.selected .tick,
+.tick.on {
+  color: var(--accent);
+}
+
+/* The queued list sits above the scrolling table, so it must not be allowed to push the table
+ * off screen. Twenty banked operations would do exactly that. */
+.queue {
+  max-height: 132px;
+  overflow-y: auto;
+}
+
+/* Archived items live in their own section at the foot of the editor, not interleaved with the
+ * working menu. The separation is the point, so it gets a real gap and a rule above it. */
+.archived-section {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 2px solid var(--border);
+}
+

@@ -94,7 +94,7 @@ Everything here requires `canAccessOrder` to pass, else **404**.
 | Create a menu item | §1 — managers only, enforced server-side |
 | Update a menu item (name, category, price, availability) | §1 |
 | Archive / restore a menu item | Never hard-deleted; old order lines still reference it |
-| **Bulk-update selected menu items** — one new price *or* one availability change | §7. Must report **per item** what succeeded and what was rejected and why. Partial success is the requirement, not a fallback |
+| **Bulk-update selected menu items** — a new price, an availability change, an archive or restore, in any combination | §7. Must report **per item** what succeeded and what was rejected and why. Partial success is the requirement, not a fallback. Widened from "one change": [Decision 12](decisions.md#decision-12--the-bulk-update-takes-any-combination-of-fields) |
 | **Export today's orders as CSV** | §7. Every order placed today with lines, total and status |
 
 A manager acting on an order they did not create is authorized but **not silent** — the timeline
@@ -125,6 +125,41 @@ AND archived_at IS NULL
 AND now() - placed_at > ALERT_THRESHOLD_MINUTES
 AND (alert_acked_at IS NULL OR now() - alert_acked_at > ALERT_SNOOZE_MINUTES)
 ```
+
+---
+
+## Bulk update
+
+`POST /menu-items/bulk` always answers `200`. The body is the report, because a status code
+describing the worst individual outcome would force a client to read the body anyway.
+
+Send `ids` plus at least one of `price`, `isAvailable`, `archived` — `archived: true` archives,
+`false` restores. At most 200 ids; duplicates are dropped and the original order kept, so the report
+reads back in the order the items were selected.
+
+What fails the whole request is the shape: a malformed id, an empty list, no fields, or a `price`
+that is not a number at all. Everything else is a per-item rejection.
+
+```jsonc
+{ "summary": { "requested": 2, "updated": 1, "partial": 1, "rejected": 0 },
+  "results": [
+    { "id": "12", "status": "updated",
+      "changes": { "price": { "status": "updated" } },
+      "menuItem": { … } },
+    { "id": "13", "status": "partial",
+      "changes": {
+        "price":       { "status": "rejected", "code": "NEGATIVE_PRICE",
+                         "reason": "Price cannot be negative" },
+        "isAvailable": { "status": "updated" } },
+      "menuItem": { … } } ]}
+```
+
+An item's `status` is `updated` when every field it carried succeeded, `rejected` when none did, and
+`partial` in between. Rejection codes: `NOT_FOUND`, `ARCHIVED`, `ALREADY_ARCHIVED`, `NOT_ARCHIVED`,
+`NEGATIVE_PRICE`, `INVALID_PRICE`, `NAME_TAKEN`, `CHANGED_CONCURRENTLY`.
+
+The row's own state is judged before the value it was given, so an archived item sent a negative
+price is rejected as `ARCHIVED` — the answer that tells the manager what to do about it.
 
 ---
 

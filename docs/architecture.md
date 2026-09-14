@@ -12,10 +12,10 @@
 
 ```mermaid
 flowchart LR
-  subgraph CDN["Static hosting — candidate: Vercel, Netlify, Cloudflare Pages"]
+  subgraph CDN["Static hosting — decided: Render static site"]
     R["Browser client<br/>React SPA, Vite build<br/>login · orders · menu · dashboard · alerts"]
   end
-  subgraph APP["Application host — candidate: Render, Fly, Railway"]
+  subgraph APP["Application host — decided: Render web service, Singapore"]
     E["API server<br/>Node + Express<br/>authentication · authorization · lifecycle rules<br/>search and pagination · dashboard queries · CSV"]
   end
   subgraph DBH["Managed Postgres — decided: Supabase"]
@@ -33,7 +33,7 @@ Browser code never touches the database. The API is the only writer. The dotted 
 
 | Piece | Responsible for | 
 |-------|-----------------|
-| **Browser client**<br/>*Decided:* React, Vite, React Router<br/>*Candidate:* server-state library (TanStack Query, SWR, plain fetch), charting library (Recharts, Chart.js) | Rendering, forms, hiding controls a role cannot use | 
+| **Browser client**<br/>*Decided:* React, Vite, React Router, TanStack Query for server state, Recharts for the dashboard charts | Rendering, forms, hiding controls a role cannot use | 
 | **API server**<br/>*Decided:* Node + Express, `pg` for the database, `jsonwebtoken` for tokens, `bcryptjs` for password hashing, `zod` for validation | Authentication, per-order authorization, the lifecycle state machine, writing history in the same transaction as the change, list queries, dashboard aggregates, CSV, bulk menu updates with per-item results | 
 | **PostgreSQL**<br/>*Decided:* PostgreSQL  | Referential integrity, enums, CHECK constraints, the append-only history trigger, all aggregation | 
 
@@ -42,7 +42,7 @@ Browser code never touches the database. The API is the only writer. The dotted 
 
 | Piece | Host | Status | Notes |
 |-------|------|--------|-------|
-| Browser client | Static CDN | **Candidate:** Vercel | Needs an SPA rewrite so refreshing `/orders/42` does not 404 |
+| Browser client | Static site, free tier | **Decided:** Render | Same provider as the API, so one dashboard covers both. `public/_redirects` rewrites unmatched paths to `index.html`, so refreshing `/orders/42` reaches the router instead of a 404 |
 | API server | Container / web service, free tier | **Decided:** Render | Free tiers sleep when idle; first request after idle can take ~1 minute. Will be noted in `SUBMISSION.md`, with a `/health` endpoint to wake it |
 | PostgreSQL | Managed Postgres | **Decided:** Supabase | Two pooled connection strings, not interchangeable: transaction mode for the API, session mode for migrations. The direct string is IPv6-only and unusable from the API host. See [Decision 7](decisions.md#decision-7--one-hosted-database-for-development-and-deployment) |
 
