@@ -2,13 +2,25 @@
 
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginPage from './auth/LoginPage.jsx';
+import { RequireAuth } from './auth/RequireAuth.jsx';
+import OrdersPage from './orders/OrdersPage.jsx';
+import Layout from './ui/Layout.jsx';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      {/* Everything below this line requires a session. RequireAuth renders an <Outlet>, so
+          the guard runs once for the whole tree rather than being repeated per route. */}
+      <Route element={<RequireAuth />}>
+        <Route element={<Layout />}>
+          <Route index element={<Navigate to="/orders" replace />} />
+          <Route path="/orders" element={<OrdersPage />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<Navigate to="/orders" replace />} />
     </Routes>
   );
 }

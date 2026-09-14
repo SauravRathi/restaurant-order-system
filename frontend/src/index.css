@@ -75,6 +75,92 @@ a:hover {
   text-decoration: underline;
 }
 
+/* ---------------------------------------------------------------- layout */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar .brand {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.topbar .brand:hover {
+  text-decoration: none;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.topbar nav a {
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-weight: 550;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.topbar nav a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+.topbar nav a.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.whoami {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 22px 20px 56px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.page-head p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
 /* ---------------------------------------------------------------- surfaces */
 
 .card {
@@ -233,6 +319,115 @@ input[type='checkbox'] {
   flex-wrap: wrap;
 }
 
+/* ---------------------------------------------------------------- table */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+
+td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr.clickable {
+  cursor: pointer;
+}
+tbody tr.clickable:hover {
+  background: var(--surface-2);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------- badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.badge.placed {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.badge.accepted {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: #c5d9f2;
+}
+.badge.preparing {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: #f0dcb4;
+}
+.badge.ready {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: #bfe0cd;
+}
+.badge.served {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.badge.cancelled {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #efc4c0;
+}
+
+.badge.alert {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #efc4c0;
+}
+.badge.archived {
+  background: var(--surface-2);
+  color: var(--text-faint);
+}
+
+.count-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ---------------------------------------------------------------- notices */
 
 .notice {
@@ -348,4 +543,55 @@ input[type='checkbox'] {
 .demo-creds button {
   font-size: 12.5px;
   padding: 3px 8px;
+}
+
+/* ---------------------------------------------------------------- modal */
+
+.modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 80px);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgb(16 22 29 / 18%);
+}
+
+.modal::backdrop {
+  background: rgb(16 22 29 / 40%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-body {
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* ---------------------------------------------------------------- filter bar */
+
+/* Inputs default to width:100% so they fill a form column. Inside the filter row they should
+ * be the size of their content instead, or a <select> with two options takes a third of the
+ * screen. */
+.filters select,
+.filters input[type='date'],
+.filters input[type='search'] {
+  width: auto;
 }
