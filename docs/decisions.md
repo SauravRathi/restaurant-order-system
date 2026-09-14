@@ -1,7 +1,6 @@
 # Decisions
 
-Decisions where a real alternative existed and I picked one, in the order I made them. Where two
-were made in the same sitting, the more consequential comes first.
+Decisions where a real alternative existed and I picked one, in the order I made them.
 
 
 ---
@@ -133,3 +132,56 @@ The full list, with reasoning for each, lives in
   queries here are not those: aggregates, an `OR` across two tables, a fourteen-day series with the
   empty days filled in. For those you end up writing the SQL anyway, inside the ORM, so the project
   carries two languages where one would do.
+
+---
+
+## Decision 9 — Build to the design as written, rather than redesigning while coding
+
+- **Chose:** implement [`api.md`](api.md) as it stood, every action and failure code was settled and documented in session 2. Change it only where building something proved the design wrong.
+- **Rejected:** Letting the AI decide or prompt me at each stage for design choices.
+- **Why:**
+
+  Sessions 1 and 2 went on design rather than code, and this is what that was for. Every question the
+  AI would otherwise have stopped to ask, which failure code, who may act on this order, what
+  happens on an illegal move, already had an answer. It wrote logic
+  instead of asking me which direction to take the project, and being asked that in the middle of a
+  route halts the work every time it happens.
+
+  The coding went ahead uninterrupted and I reviewed
+  and tested it afterwards in one pass, rather than supervising a decision at every endpoint.
+
+  It is also what made the tests writable. A test asserting that two 401 responses are byte-identical
+  is only possible because someone had already decided they must be.
+
+---
+
+## Decision 10 — Stateless tokens, no session table
+
+- **Chose:** a signed token carrying the user id, role and display name, and no server-side record
+  of who is signed in.
+- **Rejected:** a `sessions` table written on login and deleted on logout.
+- **Why:**
+
+  The token carries what every request needs, so no request costs a session lookup, and signing out
+  is the client discarding it.
+
+  What that gives up is early revocation: a stolen token, or one belonging to someone who left at
+  2pm, keeps working until it expires. A sessions table would let you delete the row and lock them
+  out immediately. But it expires after a shift.
+
+---
+
+## Decision 11 — Row-filtering rules are SQL fragments, not JavaScript checks
+
+- **Chose:** the rule for who may see an order, and the rule for what makes an order slow, are each
+  written once as SQL and pasted into every query that needs them.
+- **Rejected:** fetching the rows first and deciding in JavaScript.
+- **Why:**
+
+  JS has to load the order in order to decide you're not allowed to see it. It's already in memory, one careless log line from leaking.
+
+  Doing it in the query instead means an order you are not on comes back as nothing at all. The
+  order you may not see and the order that was never created look identical from outside, so
+  nobody can go hunting for other people's tables by trying one id after another and watching
+  which ones answer differently.
+

@@ -34,7 +34,7 @@ Browser code never touches the database. The API is the only writer. The dotted 
 | Piece | Responsible for | 
 |-------|-----------------|
 | **Browser client**<br/>*Decided:* React, Vite, React Router<br/>*Candidate:* server-state library (TanStack Query, SWR, plain fetch), charting library (Recharts, Chart.js) | Rendering, forms, hiding controls a role cannot use | 
-| **API server**<br/>*Decided:* Node + Express<br/>*Candidate:* database client library, token library, password hashing library, validation library | Authentication, per-order authorization, the lifecycle state machine, writing history in the same transaction as the change, list queries, dashboard aggregates, CSV, bulk menu updates with per-item results | 
+| **API server**<br/>*Decided:* Node + Express, `pg` for the database, `jsonwebtoken` for tokens, `bcryptjs` for password hashing, `zod` for validation | Authentication, per-order authorization, the lifecycle state machine, writing history in the same transaction as the change, list queries, dashboard aggregates, CSV, bulk menu updates with per-item results | 
 | **PostgreSQL**<br/>*Decided:* PostgreSQL  | Referential integrity, enums, CHECK constraints, the append-only history trigger, all aggregation | 
 
 
@@ -43,7 +43,7 @@ Browser code never touches the database. The API is the only writer. The dotted 
 | Piece | Host | Status | Notes |
 |-------|------|--------|-------|
 | Browser client | Static CDN | **Candidate:** Vercel | Needs an SPA rewrite so refreshing `/orders/42` does not 404 |
-| API server | Container / web service, free tier | **Candidate:** Render | Free tiers sleep when idle; first request after idle can take ~1 minute. Will be noted in `SUBMISSION.md`, with a `/health` endpoint to wake it |
+| API server | Container / web service, free tier | **Decided:** Render | Free tiers sleep when idle; first request after idle can take ~1 minute. Will be noted in `SUBMISSION.md`, with a `/health` endpoint to wake it |
 | PostgreSQL | Managed Postgres | **Decided:** Supabase | Two pooled connection strings, not interchangeable: transaction mode for the API, session mode for migrations. The direct string is IPv6-only and unusable from the API host. See [Decision 7](decisions.md#decision-7--one-hosted-database-for-development-and-deployment) |
 
 The API host is still interchangeable: the only requirement the design places on it is that it can
@@ -56,9 +56,9 @@ surface Supabase generates over every table, and that file means nothing on anot
 **Proving who you are.** *Decided:* the client sends a signed, stateless token on every request
 rather than using a cookie session, because the client and API live on different hosts and
 cross-site cookies cost an afternoon of CORS work the budget does not have.
-*Candidate:* JWT via `jsonwebtoken` for the token itself, and bcrypt or argon2id for the password
-hash. The hashing algorithm is not load-bearing; what is decided is that a raw password is never
-stored, only a hash.
+*Decided:* a JWT signed with HS256 via `jsonwebtoken`, and `bcryptjs` for the password hash —
+pure JavaScript, so the API host has no native module to compile. What was always decided is that a
+raw password is never stored, only a hash. See [Decision 10](decisions.md#decision-10--stateless-tokens-no-session-table).
 
 
 **Deciding what you may do.** Always on the server. Two checks, and they fail differently:

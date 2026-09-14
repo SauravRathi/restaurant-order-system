@@ -103,3 +103,27 @@ it with three checks that set the state they need and roll it back.
 Last, a new web service on Render running a throwaway server, to test the deployment path before the
 API exists. It proved the thing that mattered: Render can reach Supabase through the transaction
 pooler.
+
+## Session 4 — The API
+
+*13–14 Sep 2026*
+
+An important part of this session was already completed in session 2, i.e. designing the API
+endpoints and routes. That streamlined the logic writing part a lot —
+[Decision 9](decisions.md#decision-9--build-to-the-design-as-written-rather-than-redesigning-while-coding).
+
+I built the API in slices and checked each one against the live database before starting the next.
+
+Auth → users → menu → orders → alerts → dashboard.
+
+First the pieces everything else needed: one **error handler**, so every route fails the same way;
+one **payload validator**, so every route rejects a bad body before any business logic runs; and the
+rule for **who can see an order** — manager, primary waiter, or collaborator.
+
+Each slice was checked with throwaway scripts that printed what the code did rather than asserting
+it, then discarded. At the end I combined them into 66 tests and ran them against the whole backend,
+the first time everything was checked together. Writing the checks twice was the avoidable cost.
+
+**Tests that pass prove nothing until you have seen them fail.** So I broke two rules on purpose —
+the visibility rule, then the one that stops a Preparing order being cancelled — confirmed the tests
+went red in the right places, and reverted both.
