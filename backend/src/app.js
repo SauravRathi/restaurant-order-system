@@ -1,15 +1,18 @@
 // The Express application: routes and middleware, but no port binding.
 //
 // Kept separate from server.js so the app can be imported and exercised without opening a
-// socket. Right now it carries only the two health routes; the real API is session 4.
+// socket.
 
 import express from 'express';
+import { authRoutes } from './auth/routes.js';
 import { query } from './db.js';
+import { errorHandler, notFound } from './http/errors.js';
 
 export function createApp() {
   const app = express();
 
   app.disable('x-powered-by'); // no free advertising of the stack
+
   app.use(express.json({ limit: '100kb' }));
 
   // Liveness. Touches nothing, so a 200 here means the process is up and reachable and
@@ -42,7 +45,17 @@ export function createApp() {
     }
   });
 
-  app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
+  app.use('/auth', authRoutes());
+
+  // Nothing matched. Thrown rather than sent, so unknown routes and every other failure leave
+  // through the same door and come back in the same shape.
+  app.use((req) => {
+    throw notFound(`No route for ${req.method} ${req.path}`, { code: 'ROUTE_NOT_FOUND' });
+  });
+
+  // Last, and after every route: Express runs middleware in registration order, so an error
+  // handler registered before a route never sees that route's errors.
+  app.use(errorHandler);
 
   return app;
 }

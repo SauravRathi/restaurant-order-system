@@ -18,7 +18,10 @@
     "db:rebuild": "npm run db:reset -- --force && npm run db:migrate && npm run db:seed && npm run db:verify"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "express": "^5.2.1",
-    "pg": "^8.13.1"
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.1",
+    "zod": "^4.6.4"
   }
 }
