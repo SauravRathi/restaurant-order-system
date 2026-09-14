@@ -4,7 +4,9 @@
 // socket.
 
 import express from 'express';
+import { alertRoutes } from './alerts/routes.js';
 import { authRoutes } from './auth/routes.js';
+import { dashboardRoutes } from './dashboard/routes.js';
 import { query } from './db.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { menuRoutes } from './menu/routes.js';
@@ -52,6 +54,8 @@ export function createApp() {
   app.use('/users', userRoutes());
   app.use('/menu-items', menuRoutes());
   app.use('/orders', orderRoutes());
+  app.use('/alerts', alertRoutes());
+  app.use('/dashboard', dashboardRoutes());
 
   // Nothing matched. Thrown rather than sent, so unknown routes and every other failure leave
   // through the same door and come back in the same shape.

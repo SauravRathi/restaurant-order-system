@@ -12,6 +12,7 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
+import { alertPredicateSql, alertThresholds } from '../alerts/predicate.js';
 import { requireAuth, requireRole } from '../auth/middleware.js';
 import { orderVisibilitySql, scopedParams } from '../auth/visibility.js';
 import { BOM, toCsv } from './csv.js';
@@ -576,6 +577,47 @@ export function orderRoutes() {
 
       await client.query(`UPDATE orders SET archived_at = now() WHERE id = $1`, [id]);
       await recordEvent(client, { orderId: id, actorId: req.user.id, action: 'archived' });
+    });
+
+    res.json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  // §10. Acknowledging is scoped like everything else — 404 for an order that is not yours —
+  // and 409 if the order is not actually alerting, because otherwise a stale button in a tab
+  // nobody has refreshed would silently snooze an alert that had already cleared.
+  router.post('/:id/alert/ack', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const { slowOrderMinutes, repeatMinutes } = alertThresholds();
+
+    await withTransaction(async (client) => {
+      await lockVisibleOrder(client, req.user, id);
+
+      // The predicate lives in the WHERE clause rather than being re-evaluated in JavaScript
+      // from the locked row. That keeps §10 written in exactly one place — a JS copy would be
+      // a second definition of "alerting" free to drift from the one /alerts uses.
+      //
+      // orders_alert_ack_shape requires both ack columns or neither, which is why they are set
+      // together and never one at a time.
+      const { rows } = await client.query(
+        `UPDATE orders o
+            SET alert_acked_at = now(), alert_acked_by = $2
+          WHERE o.id = $1
+            AND ${alertPredicateSql({ slowParam: '$3', repeatParam: '$4' })}
+        RETURNING o.id`,
+        [id, req.user.id, slowOrderMinutes, repeatMinutes]
+      );
+      if (!rows[0]) {
+        throw conflict('This order is not currently raising a slow-order alert.', {
+          code: 'NOT_ALERTING',
+        });
+      }
+
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'alert_acknowledged',
+        details: { snoozeMinutes: repeatMinutes },
+      });
     });
 
     res.json({ order: await loadOrderDetail(req.user, id) });
