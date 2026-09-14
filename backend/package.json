@@ -8,6 +8,9 @@
     "node": ">=20.12"
   },
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.mjs\"",
     "db:migrate": "node scripts/migrate.mjs",
     "db:status": "node scripts/migrate.mjs --status",
     "db:seed": "node scripts/seed.mjs",
@@ -16,6 +19,10 @@
     "db:rebuild": "npm run db:reset -- --force && npm run db:migrate && npm run db:seed && npm run db:verify"
   },
   "dependencies": {
-    "pg": "^8.13.1"
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.13.1",
+    "zod": "^4.6.4"
   }
 }

@@ -130,15 +130,15 @@ AND (alert_acked_at IS NULL OR now() - alert_acked_at > ALERT_SNOOZE_MINUTES)
 
 
 ## Derived endpoints
-The paths mentioned are meaningful placeholders, not necessarily the finalized paths.
+These are the paths the code serves.
 
 ### Auth and identity
 
 | Method | Path | Who | Implements |
 |--------|------|-----|-----------|
 | `POST` | `/auth/login` | anonymous | Sign in |
-| `GET` | `/me` | authenticated | View own identity |
-| `GET` | `/health` | anonymous | Health check |
+| `GET` | `/auth/me` | authenticated | View own identity |
+| `GET` | `/health` · `/health/db` | anonymous | Liveness · readiness |
 
 ### Users
 

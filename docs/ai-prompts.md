@@ -3,7 +3,7 @@
 Grouped by what I was trying to do, in the order I did it. For each: what I asked, what came back,
 and what I kept or changed.
 
-Implementation prompts will be added in the same commits as the code they produce.
+Implementation prompts will be added in the same session as the code they produce.
 
 ---
 
@@ -208,3 +208,70 @@ the repository, and nothing in the project can assert that someone clicked it.
 **Result:** a 60-line server using Node's built-in `http` module and `src/db.js` as it already stood.
 
 ---
+
+## 12. Handing over session 4
+
+*Claude Opus 5*
+
+**Aim:** hand over control with enough context that the coding could run without stopping to ask me
+which direction to take at each step.
+
+**Asked:** read `CLAUDE.md` for the current state and the API design, then build the pieces
+everything else would need — password hashing, token signing, the middleware that turns a token into
+an identity, one error handler, one payload validator, and the rule for who can see an order written
+once as a reusable SQL fragment. Check each piece against the live database rather than asserting it
+works.
+
+**Result:** those pieces in that order, each run against the seeded users before the next. The
+visibility rule went in before anything used it.
+
+
+---
+
+## 13. The routes
+
+*Claude Opus 5*
+
+**Aim:** build the API logic on top of those pieces.
+
+**Asked:** the endpoints in the order `api.md` sets them out — users, then the menu, then orders,
+then alerts and the dashboard.
+
+**Result:** 26 routes. Each group was run against the live database as it was finished: sign-in and
+the role refusals, the menu's case-insensitive name collisions, the order lifecycle end to end, the
+alert window at nine minutes and eleven, the dashboard headlines against counts computed separately
+in SQL.
+
+---
+
+## 14. What §7 actually asks for in a bulk update
+
+*Claude Opus 5*
+
+**Aim:** settle the bulk update. Applying one price to several different products does not make sense
+on a real menu, and giving each its own price would be no different from updating them one at a time.
+
+**Asked:** why can we only set a single price across the selection?
+
+**Result:** it went back to the brief rather than arguing from our own notes. §7 says *"apply one
+change to all of them — a new price or a change in availability"*, so the single shared price is the
+brief's wording. 
+
+**Kept / changed:** kept the single price. I considered a percentage increase instead, which is the
+operation a real menu would actually want, and dropped it against the time budget, marked as review,
+if there is time left at the end.
+
+---
+
+## 15. Keeping the checks instead of discarding them
+
+*Claude Opus 5*
+
+**Aim:** stop throwing away the scripts that tested each slice.
+
+**Asked:** We should build a re runnable test.
+
+**Result:** 66 tests on Node's built-in test runner. [`plan.md` → Session 4](plan.md#session-4--the-api).
+
+---
+
