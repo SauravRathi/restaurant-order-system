@@ -35,12 +35,18 @@ were made in the same sitting, the more consequential comes first.
   working on this order" and "which orders am I on". A junction table indexes both cheaply: the
   composite primary key serves the first, a second index on `user_id` serves the second.
 
-  Two things an array cannot do at all, which decided it:
+  Three things an array cannot do at all, which decided it:
 
   1. **No referential integrity.** Nothing guarantees an ID in the array corresponds to a real user.
      A foreign key does.
   2. **Nowhere to record who added whom.** The timeline needs `added_by` and `added_at`; an array of
      plain IDs has no room for them.
+  3. **No protection against duplicates.** The composite primary key makes adding the same waiter
+     twice impossible in the database, rather than a check I have to remember in code.
+
+- **What I am *not* claiming:** that an array could not serve the reverse lookup. Postgres can
+  GIN-index an array, so "which orders am I on" would perform acceptably. The three points above are
+  the reasons; query speed is not one of them.
 
 ---
 
@@ -90,10 +96,40 @@ The full list, with reasoning for each, lives in
   deployment.
 - **Why:**
 
-  Two databases means the thing I test is not the thing I ship. I may come across compatibility issues at the last hour.
+  Two databases means the thing I test is not the thing I ship.
+  [`002_lockdown.sql`](../backend/migrations/002_lockdown.sql) turns on RLS and revokes the
+  `anon` and `authenticated` roles; neither role exists on a plain PostgreSQL, where that file
+  is written to be a no-op. Developing locally would leave it unrun until deployment, which is
+  the last session and has no slack in it. The `extensions` schema and the `search_path`
+  handling it forces are Supabase conventions too, and would go equally untested.
 
-  Installing PostgreSQL, then keeping two environments
+  The usual argument for a local database is that it can be destroyed freely. `db:rebuild`
+  already does that in one command, and the seed is deterministic, so the hosted database is
+  as disposable as a local one would have been.
+
+  Installing PostgreSQL with `citext`, `pg_trgm` and `pgcrypto`, then keeping two environments
   in step, costs time out of a twelve-hour budget and earns nothing the brief asks for.
 
 - **What it costs:** every query is a network round trip, so iterating on SQL is slower than it
-  would be locally, and none of it works offline. Neither has mattered, and I have not needed to work without a connection.
+  would be locally, and none of it works offline. Neither has mattered — the project sits in
+  `ap-south-1`, and I have not needed to work without a connection.
+
+- **When the other choice would be right:** a schema with nothing host-specific in it, or a team
+  sharing one database and overwriting each other's seed data. Neither applies here.
+
+---
+
+## Decision 8 — Hand-written SQL: no ORM, no migration framework
+
+- **Chose:** SQL written by hand and sent through `pg`, with the schema kept as numbered `.sql` files.
+- **Rejected:** An ORM for the queries, and a migration framework for the schema.
+- **Why:**
+
+  The schema is one of the things being assessed, and SQL is the language it is written in. A
+  framework puts its own vocabulary between [`schema.md`](schema.md) and what the database actually
+  holds.
+
+  An ORM saves real time on repetitive queries like fetch a row, insert a row, change a field. The
+  queries here are not those: aggregates, an `OR` across two tables, a fourteen-day series with the
+  empty days filled in. For those you end up writing the SQL anyway, inside the ORM, so the project
+  carries two languages where one would do.

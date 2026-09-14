@@ -10,7 +10,7 @@ At the bottom of this document, there's a section 'Notes' which follows the time
 |---------|------------|------|--------|
 | **1. Designing**| Decide the tech stack for UI and backend. Identify actors at play, entites and their attributes. Decide on a database model (SQL v/s NoSQL). Convert the entities into tables. Identify the operations that need to be performed on each table, for better indexing.  | 3 h | ~3 h | 
 | **2. API endpoints, Formalize docs and first commit** | Identify all the actions a user (Manger/Waiter)can perform. Turn those actions into corresponding API endpoints. Turn the design work from the first session into the five `docs/` files and put them on github. | 3 h | ~4 h |
-| **3. Database, Test Hosting** | Create and connect to a Postgres Database. Initialize it with seed data. Test all required functions. Test run deployment. | 2 h | — | 
+| **3. Database, Test Hosting** | Create and connect to a Postgres Database. Initialize it with seed data. Test all required functions. Test run deployment. | 2 h | ~2 h | 
 | **4. Backend** | Implement the server (Node/Express) logic. Map what managers vs waiters can do to functions in our code and API endpoints. Run tests. | 3 h | — |
 | **5. Frontend** | Design components based on user needs. Decide on a theme. Run tests against all core requirements.| 3 h | — | 
 | **6. Deploy + submit** | Host the app, demo seed, finish `SUBMISSION.md` / README. Final tests on the deployed app. | 2 h | — | 
@@ -78,3 +78,28 @@ I spent that much time on documentation deliberately. I am banking on well-defin
 from the start being easier to maintain as more of it accumulates, and on it making my prompts and
 context much more useful once the AI is writing the actual code. It is a front-loaded approach:
 more effort at the design end, on the expectation that it pays back across sessions 3 to 6.
+
+## Session 3 — Database, deployment test
+
+*13–14 Sep 2026*
+
+I gave the AI the design documents and asked it to set up the database and the connections from
+them. That produced the migrations, the seed and the `db:*` scripts.
+
+Before running any of it I settled where the database would live: one hosted Supabase database for
+development and deployment both —
+[Decision 7](decisions.md#decision-7--one-hosted-database-for-development-and-deployment). Then I
+created the project.
+
+Creating the database → creating the tables through migration files → sending the seed data →
+verifying and resetting.
+
+I ran the checks, reset the database and rebuilt it from nothing to prove it could be.
+**`db:verify` went red when I ran it on its own later.** One of its checks was only true for the
+eight minutes after seeding, so it had passed every time since `db:rebuild` runs seed and verify seconds
+apart. Logged in [`ai-prompts.md`](ai-prompts.md) as the prompt that produced bad output. I replaced
+it with three checks that set the state they need and roll it back.
+
+Last, a new web service on Render running a throwaway server, to test the deployment path before the
+API exists. It proved the thing that mattered: Render can reach Supabase through the transaction
+pooler.
