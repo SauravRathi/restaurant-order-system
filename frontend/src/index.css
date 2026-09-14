@@ -665,6 +665,49 @@ tfoot td {
   color: var(--text-muted);
 }
 
+/* ---------------------------------------------------------------- dashboard */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  padding: 14px 16px;
+}
+
+.stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+.stat-value.danger {
+  color: var(--danger);
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+}
+
+/* Recharts renders an SVG that sizes itself to its container. Without this the container has no
+ * width to measure on first paint and the chart collapses to nothing. */
+.recharts-wrapper {
+  font-family: var(--font);
+}
+
 /* ---------------------------------------------------------------- fixes found by looking */
 
 /* The hint under a field is advice, not a problem. It had been sharing the .err class, which
