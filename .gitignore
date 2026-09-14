@@ -1,0 +1,17 @@
+# Dependencies — restored by `npm install`, never committed.
+node_modules/
+
+# Secrets. Connection strings and signing keys live in the environment; the repository
+# carries .env.example, which documents the variables without holding any values.
+.env
+.env.local
+.env.*.local
+
+# Build output.
+dist/
+
+# Logs, editor and OS noise.
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

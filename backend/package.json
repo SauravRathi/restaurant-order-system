@@ -1,0 +1,21 @@
+{
+  "name": "restaurant-orders-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Restaurant Orders API — PostgreSQL schema, migrations and seed (Assignment 09)",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:status": "node scripts/migrate.mjs --status",
+    "db:seed": "node scripts/seed.mjs",
+    "db:verify": "node scripts/verify.mjs",
+    "db:reset": "node scripts/reset.mjs",
+    "db:rebuild": "npm run db:reset -- --force && npm run db:migrate && npm run db:seed && npm run db:verify"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

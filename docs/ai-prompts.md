@@ -58,7 +58,7 @@ array of user IDs on the order, or a separate join table.
 - On collaborators, the reasoning now recorded in
   [`decisions.md` → Decision 2](decisions.md#decision-2--a-join-table-for-collaborators-not-an-array).
 
-**Kept / changed:** adopted the data types and all four suggested fields. Took the join table.
+**Kept / changed:** adopted the data types and all. Took the join table.
 
 ---
 
@@ -123,3 +123,88 @@ time.
 anchors I asked for.
 
 **Kept / changed:** fixed the inconsistencies it found. Kept the anchors.
+
+---
+
+## 7. Building the database from the design documents
+
+*Claude Opus 5*
+
+**Aim:** turn the design work from sessions 1 and 2 into a real PostgreSQL database on Supabase.
+
+**Asked:** "Help me setup my database. It will be hosted on the free tier of Supabase. The
+information that you need to know will be found in README.md and docs."
+
+**Result:** the contents of `backend/` — `src/db.js`, two numbered migrations, the demo seed, four
+`db:*` scripts, and `backend/README.md`.
+
+**Kept / changed:** kept. The migrations and the seed were applied to Supabase.
+
+---
+
+## 8. Reading each file before applying it
+
+*Claude Opus 5*
+
+**Aim:** understand code written in a previous session while applying it to a real database.
+
+**Asked:** walk through each file before that file is run — `db.js`, both migrations, the seed, then
+each script.
+
+**Result:** the explanation and the execution happened together: read `001_init.sql`, then apply it;
+read `002_lockdown.sql`, then apply it; read the seed, then run it. Two things surfaced that the
+comments did not mention. `db:status` is not read-only — it creates `schema_migrations` before
+deciding what to print. And the seed disables both append-only triggers before its `TRUNCATE`, where
+only the statement-level one is needed, because `TRUNCATE` does not fire row-level triggers at all.
+
+**Kept / changed:** no code changed — both are harmless. The understanding went into the commit
+messages instead.
+
+---
+
+## 9. Whether the lockdown migration was needed at all
+
+*Claude Opus 5*
+
+**Aim:** check whether a Supabase account setting could do the same job as
+[`002_lockdown.sql`](../backend/migrations/002_lockdown.sql).
+
+**Asked:** did we need a migration to lock the database down, or could I change a setting on the
+Supabase account so it does not generate those endpoints in the first place?
+
+**Result:** it had been presenting the migration as the only route. It is not — Supabase lets you
+disable the Data API for a project outright, or change which schemas are exposed. It also withdrew
+an earlier claim it had never measured, that `anon` and `authenticated` held read and write grants
+on the tables before `002` ran.
+
+**Kept / changed:** kept the migration. It is already written, and it is *testable* — `db:verify`
+asserts that RLS is on and that those grants are gone. A dashboard setting is neither: it is not in
+the repository, and nothing in the project can assert that someone clicked it.
+
+---
+
+## 10. Nothing to deploy yet
+
+*Claude Opus 5*
+
+**Aim:** run the deployment test.
+
+**Asked:** Let's run the deployment test now. (It had prior context)
+
+**Result:** it pushed back. The repository holds no start script or server. It suggested deployment after we have built the complete backend, which was risky, since deployment is a necessary part in the presentation of this project and can't be left till the last hour. 
+
+**Kept / changed:** directed it to create a throw-away server.
+
+---
+
+## 11. A throwaway server, and the deployment test
+
+*Claude Opus 5*
+
+**Aim:** test the deployment path without waiting for the API to exist.
+
+**Asked:** write a throwaway server for the test. I
+
+**Result:** a 60-line server using Node's built-in `http` module and `src/db.js` as it already stood.
+
+---

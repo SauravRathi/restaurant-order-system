@@ -18,7 +18,7 @@ flowchart LR
   subgraph APP["Application host — candidate: Render, Fly, Railway"]
     E["API server<br/>Node + Express<br/>authentication · authorization · lifecycle rules<br/>search and pagination · dashboard queries · CSV"]
   end
-  subgraph DBH["Managed Postgres — candidate: Supabase, Neon, Railway"]
+  subgraph DBH["Managed Postgres — decided: Supabase"]
     P[("PostgreSQL<br/>6 tables · 3 enums<br/>CHECKs · append-only trigger")]
   end
   R -- "HTTPS JSON<br/>bearer token in header" --> E
@@ -44,10 +44,11 @@ Browser code never touches the database. The API is the only writer. The dotted 
 |-------|------|--------|-------|
 | Browser client | Static CDN | **Candidate:** Vercel | Needs an SPA rewrite so refreshing `/orders/42` does not 404 |
 | API server | Container / web service, free tier | **Candidate:** Render | Free tiers sleep when idle; first request after idle can take ~1 minute. Will be noted in `SUBMISSION.md`, with a `/health` endpoint to wake it |
-| PostgreSQL | Managed Postgres | **Candidate:** Supabase | Pooled connection string for the app, direct connection for migrations |
+| PostgreSQL | Managed Postgres | **Decided:** Supabase | Two pooled connection strings, not interchangeable: transaction mode for the API, session mode for migrations. The direct string is IPv6-only and unusable from the API host. See [Decision 7](decisions.md#decision-7--one-hosted-database-for-development-and-deployment) |
 
-Host choices are interchangeable here. The only requirements the design places on them are
-that the API host can hold a connection pool and that the database host speaks Postgres.
+The API host is still interchangeable: the only requirement the design places on it is that it can
+hold a connection pool. The database host is not, any more. `002_lockdown.sql` closes the REST
+surface Supabase generates over every table, and that file means nothing on another host.
 
 
 ## How the pieces talk
