@@ -11,8 +11,9 @@ export default function Layout() {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/orders" className="brand">
-          Orders
+        <Link to="/orders" className="brand wordmark">
+          <span className="wordmark-name">BUSY</span>
+          <span className="wordmark-tail">WITH ORDERS</span>
         </Link>
 
         <nav>

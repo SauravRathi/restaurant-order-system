@@ -42,7 +42,7 @@ Browser code never touches the database. The API is the only writer. The dotted 
 
 | Piece | Host | Status | Notes |
 |-------|------|--------|-------|
-| Browser client | Static site, free tier | **Decided:** Render | Same provider as the API, so one dashboard covers both. `public/_redirects` rewrites unmatched paths to `index.html`, so refreshing `/orders/42` reaches the router instead of a 404 |
+| Browser client | Static site, free tier | **Decided:** Render | Same provider as the API, so one dashboard covers both. A rewrite rule set in Render — `/*` to `/index.html`, rewrite rather than redirect so the path survives — is what lets refreshing `/orders/42` reach the router instead of a 404. Render has no `_redirects` file convention; the rule exists only in the dashboard |
 | API server | Container / web service, free tier | **Decided:** Render | Free tiers sleep when idle; first request after idle can take ~1 minute. Will be noted in `SUBMISSION.md`, with a `/health` endpoint to wake it |
 | PostgreSQL | Managed Postgres | **Decided:** Supabase | Two pooled connection strings, not interchangeable: transaction mode for the API, session mode for migrations. The direct string is IPv6-only and unusable from the API host. See [Decision 7](decisions.md#decision-7--one-hosted-database-for-development-and-deployment) |
 
