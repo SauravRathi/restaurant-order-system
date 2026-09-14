@@ -41,6 +41,30 @@ export async function requireVisibleOrder(user, orderId, client) {
   return order;
 }
 
+/**
+ * The mutating counterpart of requireVisibleOrder: same 404, but it also takes a row lock.
+ *
+ * `FOR UPDATE` is what makes the read-check-write in every mutating route safe. Without it,
+ * two waiters advancing the same order at the same moment would both read `accepted`, both
+ * find the move legal, and both write — producing two `status_changed` entries for one real
+ * change. With it, the second transaction waits and then re-reads the status the first one
+ * committed, so its transition is judged against what actually happened.
+ *
+ * It selects only the columns a state rule needs. The response is built afterwards by
+ * loadOrderDetail, once the transaction has committed.
+ */
+export async function lockVisibleOrder(client, user, orderId) {
+  const { rows } = await client.query(
+    `SELECT o.id, o.status, o.archived_at, o.primary_waiter_id, o.alert_acked_at
+       FROM orders o
+      WHERE o.id = $3 AND ${orderVisibilitySql()}
+        FOR UPDATE OF o`,
+    scopedParams(user, orderId)
+  );
+  if (!rows[0]) throw notFound('Order not found', { code: 'NOT_FOUND' });
+  return rows[0];
+}
+
 const LINES_SQL = `
   SELECT l.id, l.menu_item_id, l.item_name, l.unit_price, l.quantity,
          (l.quantity * l.unit_price)::numeric(10,2) AS line_total,

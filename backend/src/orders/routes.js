@@ -14,13 +14,45 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../auth/middleware.js';
 import { withTransaction } from '../db.js';
-import { parseBody, parseId } from '../http/validate.js';
-import { loadOrderDetail, loadTimeline, recordEvent, requireVisibleOrder } from './queries.js';
+import { conflict, notFound, unprocessable } from '../http/errors.js';
+import { idSchema, parseBody, parseId } from '../http/validate.js';
+import { ORDER_STATUSES, assertTransition, isOpen, stampColumnFor } from './lifecycle.js';
+import {
+  loadOrderDetail,
+  loadTimeline,
+  lockVisibleOrder,
+  recordEvent,
+  requireVisibleOrder,
+} from './queries.js';
 
 const createOrderSchema = z.strictObject({
   // The one thing the client supplies. TEXT, not a number, because §6 asks for a text search
   // over it and real floor plans have 'Patio 3' and 'Bar' as well as '12'.
   tableNumber: z.string().trim().min(1, 'Table number is required').max(40),
+});
+
+// 'placed' is excluded: it is where an order starts and nothing may move back to it.
+const statusSchema = z.strictObject({
+  status: z.enum(
+    ORDER_STATUSES.filter((s) => s !== 'placed'),
+    'Unknown status'
+  ),
+});
+
+const addLineSchema = z.strictObject({
+  menuItemId: idSchema,
+  quantity: z
+    .number('Quantity must be a number')
+    .int('Quantity must be a whole number')
+    .min(1, 'Quantity must be at least 1')
+    .max(99, 'Quantity must be 99 or fewer'),
+  instructions: z.string().trim().max(500).nullish().transform((v) => v || null),
+});
+
+// A reason is required by the database too (order_lines_void_shape), but validating it here is
+// what lets a waiter read a sentence instead of a constraint name.
+const voidLineSchema = z.strictObject({
+  reason: z.string().trim().min(1, 'A reason is required to void a line').max(500),
 });
 
 export function orderRoutes() {
@@ -68,6 +100,140 @@ export function orderRoutes() {
     await requireVisibleOrder(req.user, id);
 
     res.json({ timeline: await loadTimeline(id) });
+  });
+
+  // §4. Advancing and cancelling are one route because they are one rule — the matrix in
+  // lifecycle.js decides both, and cancelling is simply the move that stops being legal at
+  // `preparing`.
+  router.post('/:id/status', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const { status } = parseBody(statusSchema, req.body);
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      assertTransition(order.status, status);
+
+      // The timestamp column is chosen by the target status, so `ready_at` and `served_at`
+      // cannot drift out of step with the status they describe.
+      const stamp = stampColumnFor(status);
+      await client.query(
+        `UPDATE orders SET status = $2${stamp ? `, ${stamp} = now()` : ''} WHERE id = $1`,
+        [id, status]
+      );
+
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'status_changed',
+        fromStatus: order.status,
+        toStatus: status,
+      });
+    });
+
+    res.json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  // §3. The line's name and price are copied from the menu item now and never read from it
+  // again, so repricing the menu tomorrow cannot rewrite tonight's bill.
+  router.post('/:id/lines', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const { menuItemId, quantity, instructions } = parseBody(addLineSchema, req.body);
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      if (!isOpen(order.status)) {
+        throw conflict('This order is closed; no more items can be added to it.', {
+          code: 'ORDER_CLOSED',
+        });
+      }
+
+      const { rows } = await client.query(
+        `SELECT id, name, price, is_available, archived_at FROM menu_items WHERE id = $1`,
+        [menuItemId]
+      );
+      const item = rows[0];
+
+      // An id that names nothing is a bad payload — 422. An item that exists but cannot be
+      // ordered right now is a state rule — 409. The object in the path is the order, and the
+      // order was found, so neither of these is a 404.
+      if (!item) {
+        throw unprocessable('Invalid payload', {
+          code: 'VALIDATION_FAILED',
+          details: [{ field: 'menuItemId', message: 'No menu item with that id' }],
+        });
+      }
+      if (item.archived_at !== null) {
+        throw conflict(`${item.name} is no longer on the menu.`, { code: 'ITEM_ARCHIVED' });
+      }
+      if (!item.is_available) {
+        throw conflict(`${item.name} is unavailable right now.`, { code: 'ITEM_UNAVAILABLE' });
+      }
+
+      const { rows: inserted } = await client.query(
+        `INSERT INTO order_lines (order_id, menu_item_id, item_name, unit_price, quantity, instructions)
+              VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id`,
+        [id, item.id, item.name, item.price, quantity, instructions]
+      );
+
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'line_added',
+        lineId: inserted[0].id,
+        details: { item: item.name, quantity, unitPrice: item.price },
+      });
+    });
+
+    res.status(201).json({ order: await loadOrderDetail(req.user, id) });
+  });
+
+  // §4. Voiding marks the line; it never deletes it. The line stays on the bill, struck
+  // through, with who removed it and why — which is the difference between a correction and
+  // an erasure.
+  router.post('/:id/lines/:lineId/void', requireAuth, async (req, res) => {
+    const id = parseId(req.params.id, 'Order');
+    const lineId = parseId(req.params.lineId, 'Order line');
+    const { reason } = parseBody(voidLineSchema, req.body);
+
+    await withTransaction(async (client) => {
+      const order = await lockVisibleOrder(client, req.user, id);
+      if (!isOpen(order.status)) {
+        throw conflict('This order is closed; its lines can no longer be changed.', {
+          code: 'ORDER_CLOSED',
+        });
+      }
+
+      // Scoped to this order, so a line id belonging to somebody else's order is a 404 here
+      // for the same reason the order itself would be.
+      const { rows } = await client.query(
+        `SELECT id, item_name, voided_at FROM order_lines
+          WHERE id = $1 AND order_id = $2 FOR UPDATE`,
+        [lineId, id]
+      );
+      const line = rows[0];
+      if (!line) throw notFound('Order line not found', { code: 'NOT_FOUND' });
+      if (line.voided_at !== null) {
+        throw conflict('That line has already been voided.', { code: 'ALREADY_VOIDED' });
+      }
+
+      await client.query(
+        `UPDATE order_lines SET voided_at = now(), voided_by = $2, void_reason = $3
+          WHERE id = $1`,
+        [lineId, req.user.id, reason]
+      );
+
+      await recordEvent(client, {
+        orderId: id,
+        actorId: req.user.id,
+        action: 'line_voided',
+        lineId,
+        note: reason,
+        details: { item: line.item_name },
+      });
+    });
+
+    res.json({ order: await loadOrderDetail(req.user, id) });
   });
 
   return router;
